@@ -1,18 +1,18 @@
 import Darwin
 import Foundation
 
-/// Um shell que pode ser aberto numa aba nova.
+/// A shell that can be opened in a new tab.
 struct ShellProfile {
     let id: String
     let name: String
     let path: String
     var args: [String] = []
-    /// Abre como shell de login (lê ~/.zprofile, ~/.bash_profile…), como o Terminal e o iTerm.
+    /// Starts as a login shell (reads ~/.zprofile, ~/.bash_profile…), like Terminal and iTerm.
     var login = true
 
     var json: [String: Any] { ["id": id, "name": name, "kind": "posix", "home": NSHomeDirectory()] }
 
-    /// Shells disponíveis nesta máquina. O primeiro é o shell de login do usuário.
+    /// Shells available on this machine. The first one is the user's login shell.
     static func detect() -> [ShellProfile] {
         var result: [ShellProfile] = []
         var seen = Set<String>()
@@ -37,7 +37,7 @@ struct ShellProfile {
         return result
     }
 
-    /// Shell configurado em Usuários e Grupos (getpwuid), com $SHELL como alternativa.
+    /// Shell configured in Users & Groups (getpwuid), with $SHELL as a fallback.
     private static func userShell() -> String {
         if let pw = getpwuid(getuid()), let shell = pw.pointee.pw_shell {
             let path = String(cString: shell)

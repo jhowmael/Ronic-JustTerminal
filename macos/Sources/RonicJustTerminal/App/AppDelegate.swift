@@ -1,6 +1,6 @@
 import AppKit
 
-/// Ciclo de vida do app: janela, menu principal, ícone na barra de menus e saída.
+/// App lifecycle: window, main menu, menu bar icon and quitting.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: TerminalWindowController!
     private var statusBar: StatusBarController!
@@ -14,10 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.show()
     }
 
-    /// Fechar a última janela não encerra o app: ele fica em segundo plano na barra de menus.
+    /// Closing the last window does not quit the app: it keeps running in the menu bar.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    /// Clique no ícone do Dock (ou abrir o app de novo pelo Finder/Spotlight): mostra a janela.
+    /// Dock icon click (or reopening the app from Finder/Spotlight): show the window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         windowController.show()
         return true
@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var sessionCount: Int { bridge.sessionCount }
     var isWindowVisible: Bool { windowController.isVisible }
 
-    // MARK: - Ações (menu principal e barra de menus)
+    // MARK: - Actions (main menu and menu bar)
 
     @objc func showWindow(_ sender: Any?) { windowController.show() }
 
@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func newTab(_ sender: Any?) {
         let wasVisible = windowController.isVisible
         windowController.show()
-        // Janela que estava escondida sem abas já ganha uma ao aparecer ("shown").
+        // A hidden window with no tabs gets a new one when it reappears ("shown").
         if wasVisible || bridge.tabCount > 0 { bridge.command("newTab") }
     }
 
@@ -67,7 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func zoomOut(_ sender: Any?) { bridge.command("zoomOut") }
     @objc func zoomReset(_ sender: Any?) { bridge.command("zoomReset") }
 
-    /// Encerrar de verdade (⌘Q ou "Encerrar" na barra de menus). Pede confirmação se há shells abertos.
+    /// Quit for real (⌘Q or "Quit" in the menu bar). Asks for confirmation if shells are open.
     @objc func quit(_ sender: Any?) {
         let count = bridge.sessionCount
         if count > 0 {

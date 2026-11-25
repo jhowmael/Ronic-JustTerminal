@@ -3,7 +3,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace RonicJustTerminal;
 
-/// P/Invoke: ConPTY (kernel32) e efeitos de janela (dwmapi).
+/// P/Invoke: ConPTY (kernel32 / conpty.dll) and window effects (dwmapi).
 internal static class Native
 {
     // ---------------------------------------------------------------- ConPTY
@@ -46,14 +46,54 @@ internal static class Native
     public static readonly IntPtr PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = (IntPtr)0x00020016;
     public const uint INFINITE = 0xFFFFFFFF;
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern int CreatePseudoConsole(COORD size, SafeFileHandle hInput, SafeFileHandle hOutput, uint dwFlags, out IntPtr phPC);
+    // The pseudo console comes from the bundled conpty.dll (Microsoft.Windows.Console.ConPTY, with
+    // OpenConsole.exe in x64\ or arm64\) when present; otherwise from Windows' kernel32.
+    public static readonly bool BundledConPty = DetectBundledConPty();
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern int ResizePseudoConsole(IntPtr hPC, COORD size);
+    private static bool DetectBundledConPty()
+    {
+        var dir = AppContext.BaseDirectory;
+        var arch = RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "arm64" : "x64";
+        return File.Exists(Path.Combine(dir, "conpty.dll"))
+            && File.Exists(Path.Combine(dir, arch, "OpenConsole.exe"))
+            && NativeLibrary.TryLoad(Path.Combine(dir, "conpty.dll"), out _);
+    }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern void ClosePseudoConsole(IntPtr hPC);
+    public static int CreatePseudoConsole(COORD size, SafeFileHandle hInput, SafeFileHandle hOutput, uint dwFlags, out IntPtr phPC)
+    {
+        if (BundledConPty)
+        {
+            try { return ConptyCreatePseudoConsole(size, hInput, hOutput, dwFlags, out phPC); }
+            catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) { }
+        }
+        return Kernel32CreatePseudoConsole(size, hInput, hOutput, dwFlags, out phPC);
+    }
+
+    public static int ResizePseudoConsole(IntPtr hPC, COORD size) =>
+        BundledConPty ? ConptyResizePseudoConsole(hPC, size) : Kernel32ResizePseudoConsole(hPC, size);
+
+    public static void ClosePseudoConsole(IntPtr hPC)
+    {
+        if (BundledConPty) ConptyClosePseudoConsole(hPC); else Kernel32ClosePseudoConsole(hPC);
+    }
+
+    [DllImport("conpty.dll", EntryPoint = "ConptyCreatePseudoConsole")]
+    private static extern int ConptyCreatePseudoConsole(COORD size, SafeFileHandle hInput, SafeFileHandle hOutput, uint dwFlags, out IntPtr phPC);
+
+    [DllImport("conpty.dll", EntryPoint = "ConptyResizePseudoConsole")]
+    private static extern int ConptyResizePseudoConsole(IntPtr hPC, COORD size);
+
+    [DllImport("conpty.dll", EntryPoint = "ConptyClosePseudoConsole")]
+    private static extern void ConptyClosePseudoConsole(IntPtr hPC);
+
+    [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "CreatePseudoConsole")]
+    private static extern int Kernel32CreatePseudoConsole(COORD size, SafeFileHandle hInput, SafeFileHandle hOutput, uint dwFlags, out IntPtr phPC);
+
+    [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "ResizePseudoConsole")]
+    private static extern int Kernel32ResizePseudoConsole(IntPtr hPC, COORD size);
+
+    [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "ClosePseudoConsole")]
+    private static extern void Kernel32ClosePseudoConsole(IntPtr hPC);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool CreatePipe(out SafeFileHandle hReadPipe, out SafeFileHandle hWritePipe, IntPtr lpPipeAttributes, int nSize);

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Cria (uma única vez) um certificado local de assinatura de código só para o Ronic JustTerminal.
+# Creates (once) a local code-signing certificate just for Ronic JustTerminal.
 #
-# Por quê: o macOS amarra as permissões (Documentos, Mesa, Downloads, Automação…) à assinatura do app. Com assinatura
-# ad-hoc, cada recompilação vira um "app diferente" e o macOS volta a perguntar tudo de novo.
-# Assinando sempre com o MESMO certificado, as permissões sobrevivem às recompilações.
+# Why: macOS ties permissions (Documents, Desktop, Downloads, Automation…) to the app's signature. With ad-hoc
+# signing, every rebuild becomes a "different app" and macOS asks for everything again.
+# Always signing with the SAME certificate keeps the permissions across rebuilds.
 #
-# O certificado e a chave ficam num keychain próprio em ~/.ronic-justterminal-signing (fora do repositório).
-# Não mexe no keychain de login nem adiciona nada como confiável no sistema.
+# The certificate and key live in a dedicated keychain at ~/.ronic-justterminal-signing (outside the repo).
+# It never touches the login keychain and never marks anything as trusted system-wide.
 #
-# O keychain é adicionado à lista de busca do usuário (exigência do codesign).
-# Saída (stdout): o hash SHA-1 da identidade, para usar em `codesign --sign <hash>`.
+# The keychain is added to the user's search list (required by codesign).
+# Output (stdout): the identity's SHA-1 hash, for `codesign --sign <hash>`.
 set -euo pipefail
 
 DIR="$HOME/.ronic-justterminal-signing"
@@ -41,7 +41,7 @@ CNF
     -name "$NAME" -out "$TMP/id.p12" -passout "pass:$PASS" >/dev/null 2>&1
 
   security create-keychain -p "$PASS" "$KC" >/dev/null
-  security set-keychain-settings "$KC"            # sem bloqueio automático
+  security set-keychain-settings "$KC"            # no auto-lock
   security unlock-keychain -p "$PASS" "$KC"
   security import "$TMP/id.p12" -k "$KC" -P "$PASS" -T /usr/bin/codesign >/dev/null
   security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "$KC" >/dev/null
@@ -49,7 +49,7 @@ fi
 
 security unlock-keychain -p "$PASS" "$KC"
 
-# Garante que o keychain está na lista de busca do usuário (sem remover os existentes).
+# Make sure the keychain is in the user's search list (without removing existing ones).
 current=$(security list-keychains -d user | sed 's/^ *"//; s/"$//')
 if ! grep -qxF "$KC" <<<"$current"; then
   # shellcheck disable=SC2086

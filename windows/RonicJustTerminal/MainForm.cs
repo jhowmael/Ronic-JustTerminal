@@ -5,11 +5,11 @@ using static RonicJustTerminal.Native;
 
 namespace RonicJustTerminal;
 
-/// Janela principal: barra de título escura, vidro Acrylic (Windows 11) e a interface web
-/// (abas + xterm.js) num WebView2 transparente. Ícone na bandeja do sistema.
+/// Main window: dark title bar, Acrylic glass (Windows 11) and the web UI
+/// (tabs + xterm.js) in a transparent WebView2. Icon in the system tray.
 ///
-/// Fechar a janela NÃO encerra os shells: ela só é escondida e o app continua na bandeja.
-/// Equivalente a TerminalWindowController.swift + StatusBarController.swift no macOS.
+/// Closing the window does NOT end the shells: it is only hidden and the app stays in the tray.
+/// Counterpart of TerminalWindowController.swift + StatusBarController.swift on macOS.
 internal sealed class MainForm : Form
 {
     private const string HostName = "app.ronicjustterminal.example";
@@ -25,7 +25,7 @@ internal sealed class MainForm : Form
     {
         Text = "Ronic JustTerminal";
         Icon = LoadIcon();
-        BackColor = Color.Black;          // com o frame estendido, preto = transparente (vidro aparece)
+        BackColor = Color.Black;          // with the extended frame, black = transparent (glass shows)
         MinimumSize = new Size(480, 280);
         StartPosition = FormStartPosition.Manual;
         var screen = Screen.PrimaryScreen!.WorkingArea;
@@ -84,7 +84,7 @@ internal sealed class MainForm : Form
         s.IsZoomControlEnabled = false;
         s.IsPinchZoomEnabled = false;
         s.IsSwipeNavigationEnabled = false;
-        s.AreBrowserAcceleratorKeysEnabled = false;   // Ctrl+P, F5, Ctrl+F… ficam para o terminal
+        s.AreBrowserAcceleratorKeysEnabled = false;   // Ctrl+P, F5, Ctrl+F… go to the terminal
         s.IsGeneralAutofillEnabled = false;
         s.IsPasswordAutosaveEnabled = false;
 
@@ -97,20 +97,22 @@ internal sealed class MainForm : Form
         core.SetVirtualHostNameToFolderMapping(HostName, webDir, CoreWebView2HostResourceAccessKind.Allow);
         _bridge.Attach(core);
 
-        // A página nunca navega para fora: links e janelas novas abrem no navegador padrão.
+        // The page never navigates away: links and new windows open in the default browser.
         core.NewWindowRequested += (_, e) => { e.Handled = true; OpenExternal(e.Uri); };
         core.NavigationStarting += (_, e) =>
         {
             if (!e.Uri.StartsWith($"https://{HostName}/", StringComparison.OrdinalIgnoreCase)) { e.Cancel = true; OpenExternal(e.Uri); }
         };
         core.ProcessFailed += (_, _) => { _bridge.TerminateAll(); core.Reload(); };
+        // Page loaded: the keyboard goes straight to the terminal, no click needed.
+        core.NavigationCompleted += (_, _) => _web.Focus();
 
         core.Navigate($"https://{HostName}/index.html");
         _webReady = true;
         ApplyBackdrop(SettingsStore.Opacity);
     }
 
-    /// Ao lado do .exe: web\ (pacote). Em desenvolvimento: shared-web\ do repositório.
+    /// Next to the .exe: web\ (package). In development: the repo's shared-web\.
     private static string? FindWebDirectory()
     {
         var env = Environment.GetEnvironmentVariable("JT_WEB_DIR");
@@ -131,7 +133,7 @@ internal sealed class MainForm : Form
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(u.AbsoluteUri) { UseShellExecute = true });
     }
 
-    // ------------------------------------------------------- vidro e barra de título
+    // ------------------------------------------------------- glass and title bar
 
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -142,8 +144,8 @@ internal sealed class MainForm : Form
         ApplyBackdrop(SettingsStore.Opacity);
     }
 
-    /// Opacidade 100%: janela sólida, barra de título na cor do terminal (sem custo de composição).
-    /// Abaixo de 100%: vidro Acrylic do Windows 11 atrás da página (no Windows 10 fica sólido).
+    /// 100% opacity: solid window, title bar in the terminal color (no compositing cost).
+    /// Below 100%: Windows 11 Acrylic glass behind the page (stays solid on Windows 10).
     private void ApplyBackdrop(double opacity)
     {
         if (!IsHandleCreated) return;
@@ -209,7 +211,7 @@ internal sealed class MainForm : Form
         else SettingsStore.WindowBounds = RestoreBounds;
     }
 
-    /// Encerrar de verdade (Sair na bandeja). Pede confirmação se há shells abertos.
+    /// Quit for real (Exit in the tray). Asks for confirmation if shells are open.
     public void Quit(bool confirm = true)
     {
         int count = _bridge.SessionCount;
@@ -248,7 +250,7 @@ internal sealed class MainForm : Form
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Sair", null, (_, _) => Quit());
         };
-        menu.Items.Add("…");   // o menu precisa de um item para abrir; Opening monta o conteúdo real
+        menu.Items.Add("…");   // the menu needs an item to open; Opening builds the real content
         return menu;
     }
 
@@ -256,7 +258,7 @@ internal sealed class MainForm : Form
     {
         bool wasVisible = Visible;
         ShowFromTray();
-        // Janela escondida sem abas já ganha uma ao aparecer ("shown").
+        // A hidden window with no tabs gets a new one when it reappears ("shown").
         if (wasVisible || _bridge.TabCount > 0) _bridge.Command("newTab", profile);
     }
 

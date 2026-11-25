@@ -2,11 +2,11 @@ using System.Text;
 
 namespace RonicJustTerminal;
 
-/// Um shell que pode ser aberto numa aba nova.
+/// A shell that can be opened in a new tab.
 ///
-/// Kind (dialeto do "cd" e formato dos caminhos): "powershell", "cmd" ou "posix" (WSL, Git Bash).
-/// Cada perfil injeta uma integração leve no prompt para informar a pasta atual à barra lateral
-/// (OSC 9;9 / OSC 7) e marcar onde o prompt termina (OSC 133), sem alterar arquivos do usuário.
+/// Kind ("cd" dialect and path format): "powershell", "cmd" or "posix" (WSL, Git Bash).
+/// Each profile injects a lightweight prompt integration that reports the current directory to the
+/// sidebar (OSC 9;9 / OSC 7) and marks where the prompt ends (OSC 133), without touching user files.
 internal sealed class ShellProfile
 {
     public required string Id { get; init; }
@@ -15,14 +15,14 @@ internal sealed class ShellProfile
     public string Args { get; init; } = "";
     public required string Kind { get; init; }
     public string Flavor { get; init; } = "";
-    /// Pasta inicial da árvore, no formato do shell.
+    /// Root folder of the tree, in the shell's format.
     public string Home { get; init; } = "";
-    /// Variáveis de ambiente extras só desta sessão.
+    /// Extra environment variables for this session only.
     public Dictionary<string, string> Env { get; init; } = new();
 
     public object Json => new { id = Id, name = Name, kind = Kind, flavor = Flavor, home = Home };
 
-    /// Linha de comando completa. `cwd` (formato do shell) só importa para o WSL (--cd).
+    /// Full command line. `cwd` (shell format) only matters for WSL (--cd).
     public string CommandLine(string? cwd)
     {
         var args = Args;
@@ -30,7 +30,7 @@ internal sealed class ShellProfile
         return Quote(Exe) + (args.Length > 0 ? " " + args : "");
     }
 
-    /// Converte um caminho no formato do shell para um caminho que o Windows consegue abrir.
+    /// Converts a path in the shell's format into a path Windows can open.
     public string ToWindowsPath(string path, string host)
     {
         if (Kind != "posix") return path;
@@ -47,7 +47,7 @@ internal sealed class ShellProfile
         return Path.Combine(gitRoot, path.TrimStart('/').Replace('/', '\\'));
     }
 
-    /// Shells disponíveis nesta máquina, na ordem de preferência (o primeiro é o padrão).
+    /// Shells available on this machine, in order of preference (the first is the default).
     public static List<ShellProfile> Detect()
     {
         var list = new List<ShellProfile>();
@@ -99,8 +99,8 @@ internal sealed class ShellProfile
         return list;
     }
 
-    /// Embrulha o prompt atual do PowerShell (inclusive oh-my-posh/starship do perfil do usuário):
-    /// antes dele, a pasta atual (OSC 9;9) e o início do prompt (OSC 133;A); depois, o fim (133;B).
+    /// Wraps the current PowerShell prompt (including oh-my-posh/starship from the user's profile):
+    /// before it, the current directory (OSC 9;9) and the prompt start (OSC 133;A); after it, the end (133;B).
     private const string PowerShellIntegration = """
         $global:__jtPrompt = $function:prompt
         function global:prompt {
@@ -145,7 +145,7 @@ internal sealed class ShellProfile
                 var full = Path.Combine(dir.Trim(), exe);
                 if (File.Exists(full)) return full;
             }
-            catch (ArgumentException) { /* entrada inválida no PATH */ }
+            catch (ArgumentException) { /* invalid PATH entry */ }
         }
         return null;
     }

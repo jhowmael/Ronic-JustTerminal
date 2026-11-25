@@ -1,24 +1,24 @@
 import Darwin
 import Foundation
 
-/// Uma sessão de terminal: um shell rodando num pseudo-terminal (forkpty).
+/// One terminal session: a shell running in a pseudo-terminal (forkpty).
 ///
-/// Camada de PTY do macOS. Não sabe nada de abas nem de interface: recebe bytes para escrever,
-/// entrega bytes lidos e avisa quando o processo termina.
+/// macOS PTY layer. Knows nothing about tabs or UI: it takes bytes to write, delivers the
+/// bytes it reads and reports when the process exits.
 ///
-/// Desempenho:
-/// - a leitura roda numa fila de I/O dedicada (DispatchSourceRead, sem polling);
-/// - controle de fluxo: se a interface ainda não desenhou `highWater` bytes, a leitura pausa
-///   até chegar o "ack" (assim um `yes` ou `cat arquivo-enorme` não congela a janela).
+/// Performance:
+/// - reading runs on a dedicated I/O queue (DispatchSourceRead, no polling);
+/// - flow control: if the UI has not drawn `highWater` bytes yet, reading pauses until the
+///   "ack" arrives (so `yes` or `cat huge-file` never freezes the window).
 final class PTYSession {
     let id: Int
     private(set) var pid: pid_t = 0
 
-    /// Chamado na fila de I/O com cada bloco lido.
+    /// Called on the I/O queue with every chunk read.
     var onData: ((Data) -> Void)?
-    /// Chamado na main thread quando o processo termina (depois de toda a saída ter sido lida).
+    /// Called on the main thread when the process exits (after all output has been read).
     var onExit: ((Int32) -> Void)?
-    /// Chamado na fila de I/O quando a pasta atual do shell muda (cd).
+    /// Called on the I/O queue when the shell's current directory changes (cd).
     var onCwdChange: ((String) -> Void)?
 
     private static let ioQueue = DispatchQueue(label: "justterminal.pty.io", qos: .userInteractive)
@@ -41,13 +41,13 @@ final class PTYSession {
         self.id = id
     }
 
-    /// Inicia o shell. `profile.path` é executado como shell de login (argv[0] = "-zsh").
-    func start(profile: ShellProfile, cols: Int, rows: Int, cwd: String) throws {
-        // Tudo que o processo filho usa é preparado ANTES do fork: depois do fork só chamamos
-        // funções seguras (chdir, execve, _exit).
+    /// Starts the shell. `profile.path` runs as a login shell (argv[0] = "-zsh").
+    func start(profile: ShellProfile, cols: Int, rows: Int, cwd: String, extraEnv: [String: String] = [:]) throws {
+        // Everything the child process uses is prepared BEFORE fork: after fork we only call
+        // async-signal-safe functions (chdir, execve, _exit).
         let argv0 = profile.login ? "-" + (profile.path as NSString).lastPathComponent : profile.path
         let args = [argv0] + profile.args
-        let env = Self.environment()
+        let env = Self.environment().merging(extraEnv) { _, new in new }
 
         let cArgs = args.map { strdup($0) } + [nil]
         let cEnv = env.map { strdup("\($0.key)=\($0.value)") } + [nil]
@@ -96,10 +96,10 @@ final class PTYSession {
         scheduleCwdCheck()
     }
 
-    // MARK: - Pasta atual (sem configurar nada no shell)
+    // MARK: - Current directory (no shell configuration needed)
 
-    /// Depois de cada saída (o prompt reaparece após um `cd`), consulta a pasta atual do processo
-    /// em primeiro plano direto no kernel (proc_pidinfo). No máximo ~6 consultas por segundo.
+    /// After each output (the prompt comes back after a `cd`), reads the current directory of the
+    /// foreground process straight from the kernel (proc_pidinfo). At most ~6 lookups per second.
     private func scheduleCwdCheck() {
         guard !cwdCheckScheduled, onCwdChange != nil else { return }
         cwdCheckScheduled = true
@@ -112,7 +112,7 @@ final class PTYSession {
         }
     }
 
-    /// Pasta atual do processo em primeiro plano (um shell aninhado também conta) ou do shell.
+    /// Current directory of the foreground process (a nested shell counts too) or of the shell.
     private func currentDirectory() -> String? {
         let fg = master >= 0 ? tcgetpgrp(master) : -1
         return Self.cwd(of: fg > 0 ? fg : pid) ?? Self.cwd(of: pid)
@@ -128,7 +128,7 @@ final class PTYSession {
         return path.isEmpty ? nil : path
     }
 
-    /// Algum programa (vim, npm, ssh…) está em primeiro plano, em vez do prompt do shell?
+    /// Is some program (vim, npm, ssh…) in the foreground instead of the shell prompt?
     var isBusy: Bool {
         guard master >= 0, pid > 0 else { return false }
         let fg = tcgetpgrp(master)
@@ -158,7 +158,7 @@ final class PTYSession {
             } else if n < 0 && (errno == EAGAIN || errno == EINTR) {
                 return
             } else {
-                // EOF / EIO: o lado escravo fechou (shell saiu). Para de ler.
+                // EOF / EIO: the slave side closed (shell exited). Stop reading.
                 stopReading()
                 finishIfDone()
                 return
@@ -181,11 +181,11 @@ final class PTYSession {
     private func stopReading() {
         guard let rs = readSource else { return }
         readSource = nil
-        if readPaused { readPaused = false; rs.resume() }   // uma fonte suspensa não pode ser cancelada
+        if readPaused { readPaused = false; rs.resume() }   // a suspended source cannot be cancelled
         rs.cancel()
     }
 
-    /// A interface confirmou que desenhou `bytes` bytes desta sessão.
+    /// The UI confirmed it has drawn `bytes` bytes of this session.
     func ack(_ bytes: Int) {
         Self.ioQueue.async {
             self.inFlight = max(0, self.inFlight - bytes)
@@ -211,7 +211,7 @@ final class PTYSession {
             } else if n < 0 && errno == EINTR {
                 continue
             } else if n < 0 && errno == EAGAIN {
-                // Buffer do PTY cheio (colar um texto enorme): espera o kernel liberar espaço.
+                // PTY buffer full (pasting a huge text): wait for the kernel to free space.
                 if writeSource == nil {
                     let ws = DispatchSource.makeWriteSource(fileDescriptor: master, queue: Self.ioQueue)
                     ws.setEventHandler { [weak self] in self?.flushWrites() }
@@ -245,10 +245,10 @@ final class PTYSession {
         guard r == pid || r < 0 else { return }
         processSource?.cancel()
         processSource = nil
-        // WIFEXITED/WEXITSTATUS são macros em C; aqui vão em aritmética direta.
+        // WIFEXITED/WEXITSTATUS are C macros; here they are plain arithmetic.
         let signaled = (status & 0x7f) != 0
         exitStatus = signaled ? 128 + (status & 0x7f) : (status >> 8) & 0xff
-        // Lê o que sobrou no PTY antes de avisar a interface.
+        // Read whatever is left in the PTY before notifying the UI.
         if readSource != nil { readAvailable() }
         stopReading()
         finishIfDone()
@@ -262,7 +262,7 @@ final class PTYSession {
         DispatchQueue.main.async { self.onExit?(code) }
     }
 
-    /// Fecha a aba: SIGHUP para o grupo de processos (como fechar uma janela do Terminal).
+    /// Closing the tab: SIGHUP to the process group (like closing a Terminal window).
     func terminate() {
         let pid = self.pid
         guard pid > 0 else { return }
@@ -272,14 +272,14 @@ final class PTYSession {
             kill(pid, SIGHUP)
             self.stopReading()
         }
-        // Processo que ignora SIGHUP: força depois de 3 s.
+        // A process that ignores SIGHUP: force it after 3 s.
         Self.ioQueue.asyncAfter(deadline: .now() + 3) {
             if self.exitStatus == nil, kill(pid, 0) == 0 { kill(-pid, SIGKILL); kill(pid, SIGKILL) }
         }
     }
 
-    /// Ambiente do shell: o do app + variáveis de terminal. Apps abertos pelo Finder não
-    /// herdam LANG, então definimos um UTF-8 a partir do idioma do sistema.
+    /// Shell environment: the app's own plus terminal variables. Apps launched from Finder don't
+    /// inherit LANG, so we set a UTF-8 one based on the system language.
     private static func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
@@ -291,8 +291,8 @@ final class PTYSession {
             env["LANG"] = (id.isEmpty ? "en_US" : id.components(separatedBy: "@").first!) + ".UTF-8"
         }
         if env["HOME"] == nil { env["HOME"] = NSHomeDirectory() }
-        env["BASH_SILENCE_DEPRECATION_WARNING"] = "1"   // o bash do sistema não insiste em "use zsh"
-        // Variáveis de quem lançou o app que não fazem sentido dentro do shell.
+        env["BASH_SILENCE_DEPRECATION_WARNING"] = "1"   // stops the system bash from nagging "use zsh"
+        // Variables from whoever launched the app that make no sense inside the shell.
         for key in ["__CFBundleIdentifier", "XPC_SERVICE_NAME", "XPC_FLAGS", "TERM_SESSION_ID", "ITERM_SESSION_ID"] {
             env.removeValue(forKey: key)
         }

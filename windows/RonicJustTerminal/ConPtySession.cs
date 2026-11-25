@@ -8,15 +8,15 @@ using static RonicJustTerminal.Native;
 
 namespace RonicJustTerminal;
 
-/// Uma sessão de terminal: um shell (PowerShell, cmd, WSL…) rodando num pseudo-console (ConPTY).
+/// One terminal session: a shell (PowerShell, cmd, WSL…) running in a pseudo console (ConPTY).
 ///
-/// Camada de PTY do Windows. Não sabe nada de abas nem de interface: recebe bytes para escrever,
-/// entrega bytes lidos e avisa quando o processo termina. Equivalente a PTYSession.swift no macOS.
+/// Windows PTY layer. Knows nothing about tabs or UI: it takes bytes to write, delivers the
+/// bytes it reads and reports when the process exits. Counterpart of PTYSession.swift on macOS.
 ///
-/// Desempenho:
-/// - leitura numa thread dedicada (ReadFile bloqueante, sem polling);
-/// - controle de fluxo: se a interface ainda não desenhou HighWater bytes, a leitura pausa até
-///   chegar o "ack" (um `dir /s` gigante não congela a janela).
+/// Performance:
+/// - reading on a dedicated thread (blocking ReadFile, no polling);
+/// - flow control: if the UI has not drawn HighWater bytes yet, reading pauses until the
+///   "ack" arrives (a huge `dir /s` never freezes the window).
 internal sealed class ConPtySession
 {
     private const int HighWater = 512 * 1024;
@@ -24,9 +24,9 @@ internal sealed class ConPtySession
 
     public int Id { get; }
 
-    /// Chamado na thread de leitura com cada bloco lido.
+    /// Called on the reader thread with every chunk read.
     public Action<byte[]>? Data;
-    /// Chamado (em outra thread) quando o processo termina, depois de toda a saída ter sido lida.
+    /// Called (on another thread) when the process exits, after all output has been read.
     public Action<int>? Exited;
 
     private IntPtr _hPC;
@@ -51,7 +51,7 @@ internal sealed class ConPtySession
         int hr = CreatePseudoConsole(new COORD(cols, rows), inputRead, outputWrite, 0, out _hPC);
         if (hr != 0) throw new Win32Exception(hr, "CreatePseudoConsole falhou (requer Windows 10 1809 ou mais recente)");
 
-        // O ConPTY duplicou estas pontas; as nossas cópias podem fechar.
+        // ConPTY duplicated these pipe ends; our copies can be closed.
         inputRead.Dispose();
         outputWrite.Dispose();
 
@@ -68,7 +68,7 @@ internal sealed class ConPtySession
 
             var si = new STARTUPINFOEX { lpAttributeList = attrList };
             si.StartupInfo.cb = Marshal.SizeOf<STARTUPINFOEX>();
-            // Sem herdar os handles padrão do app: toda a E/S do shell passa pelo pseudo-console.
+            // Don't inherit the app's standard handles: all shell I/O goes through the pseudo console.
             si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
 
             var cmdLine = (commandLine + "\0").ToCharArray();
@@ -112,7 +112,7 @@ internal sealed class ConPtySession
                 if (!_killed) _resume.Wait();
                 int n = _output!.Read(buffer, 0, buffer.Length);
                 if (n <= 0) break;
-                if (_killed) continue;   // aba fechada: só drena até o fim
+                if (_killed) continue;   // tab closed: just drain until the end
                 var chunk = buffer.AsSpan(0, n).ToArray();
                 if (Interlocked.Add(ref _inFlight, n) > HighWater)
                 {
@@ -127,7 +127,7 @@ internal sealed class ConPtySession
         finally { _readerDone.Set(); }
     }
 
-    /// A interface confirmou que desenhou `bytes` bytes desta sessão.
+    /// The UI confirmed it has drawn `bytes` bytes of this session.
     public void Ack(int bytes)
     {
         if (Interlocked.Add(ref _inFlight, -bytes) < LowWater) _resume.Set();
@@ -170,7 +170,7 @@ internal sealed class ConPtySession
     {
         WaitForSingleObject(_pi.hProcess, INFINITE);
         GetExitCodeProcess(_pi.hProcess, out uint code);
-        // Fechar o pseudo-console faz a leitura receber EOF depois de entregar o que sobrou.
+        // Closing the pseudo console makes the reader hit EOF after delivering what is left.
         ClosePseudoConsoleOnce();
         _readerDone.Wait(TimeSpan.FromSeconds(5));
         _writes.CompleteAdding();
@@ -181,8 +181,8 @@ internal sealed class ConPtySession
         if (!_killed) Exited?.Invoke((int)code);
     }
 
-    /// Fecha a aba: encerra o pseudo-console (os processos recebem CTRL_CLOSE) e, se algum
-    /// ignorar, força o fim depois de 3 s.
+    /// Closing the tab: closes the pseudo console (processes get CTRL_CLOSE) and, if any of them
+    /// ignores it, forces the end after 3 s.
     public void Kill()
     {
         if (_killed) return;
@@ -208,17 +208,17 @@ internal sealed class ConPtySession
         ClosePseudoConsole(_hPC);
     }
 
-    /// Ambiente do shell: o do app + variáveis de terminal. Bloco Unicode ordenado ("k=v\0…\0\0").
+    /// Shell environment: the app's own plus terminal variables. Sorted Unicode block ("k=v\0…\0\0").
     private static IntPtr BuildEnvironmentBlock(IReadOnlyDictionary<string, string> extraEnv)
     {
         var vars = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (DictionaryEntry e in Environment.GetEnvironmentVariables())
             vars[(string)e.Key] = (string?)e.Value ?? "";
-        foreach (var (k, v) in extraEnv) vars[k] = v;   // integração do perfil (PROMPT, PROMPT_COMMAND…)
+        foreach (var (k, v) in extraEnv) vars[k] = v;   // profile integration (PROMPT, PROMPT_COMMAND…)
         vars["COLORTERM"] = "truecolor";
         vars["TERM_PROGRAM"] = "RonicJustTerminal";
         vars["TERM_PROGRAM_VERSION"] = Application.ProductVersion.Split('+')[0];
-        // WSL repassa estas variáveis para o Linux (WSLENV), então o shell de lá também as vê.
+        // WSL forwards these variables to Linux (WSLENV), so the shell there sees them too.
         vars["WSLENV"] = AppendWslEnv(vars.GetValueOrDefault("WSLENV"), "COLORTERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION");
 
         var sb = new StringBuilder();

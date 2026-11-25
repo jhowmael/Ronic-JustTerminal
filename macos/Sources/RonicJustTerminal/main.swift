@@ -1,6 +1,6 @@
 import AppKit
 
-// Ponto de entrada. Sem storyboard/xib: o menu e a janela são montados em código.
+// Entry point. No storyboard/xib: the menu and the window are built in code.
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Atualiza o xterm.js embutido em shared-web/vendor (o app roda offline, sem CDN).
+# Updates the xterm.js copy bundled in shared-web/vendor (the app runs offline, no CDN).
 #   ./scripts/vendor-xterm.sh
-# Requer: npm. Versões fixas abaixo; troque e rode de novo para atualizar.
+# Requires: npm. Versions are pinned below; change them and run again to update.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENDOR="$ROOT/shared-web/vendor"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Gera todos os ícones do Ronic JustTerminal a partir de branding/make-icons.swift.
-# Rode no macOS:  ./branding/make-icons.sh
+# Generates every Ronic JustTerminal icon from branding/make-icons.swift.
+# Run on macOS:  ./branding/make-icons.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/branding/out"
@@ -19,7 +19,7 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$ROOT/macos/Resources/AppIcon.icns"
 
-# Windows (.ico com PNGs embutidos)
+# Windows (.ico with embedded PNGs)
 python3 - "$OUT" "$ROOT/windows/RonicJustTerminal/Assets/ronic.ico" <<'PY'
 import struct, sys, os
 out, dest = sys.argv[1], sys.argv[2]

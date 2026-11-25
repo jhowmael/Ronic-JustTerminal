@@ -5,17 +5,17 @@ using Microsoft.Web.WebView2.Core;
 
 namespace RonicJustTerminal;
 
-/// Ponte entre a interface (shared-web, dentro do WebView2) e as sessões ConPTY.
-/// Mesmo contrato do macOS: docs/BRIDGE.md. Equivalente a TerminalBridge.swift.
+/// Bridge between the UI (shared-web, inside the WebView2) and the ConPTY sessions.
+/// Same contract as macOS: docs/BRIDGE.md. Counterpart of TerminalBridge.swift.
 internal sealed class TerminalBridge
 {
     private readonly Control _ui;
     private CoreWebView2? _web;
     private readonly Dictionary<int, ConPtySession> _sessions = new();
-    private readonly Dictionary<int, ShellProfile> _tabProfiles = new();   // perfil de cada aba (mesmo após sair)
+    private readonly Dictionary<int, ShellProfile> _tabProfiles = new();   // each tab's profile (even after it exits)
     private readonly List<ShellProfile> _profiles = ShellProfile.Detect();
 
-    // Saída dos PTYs agrupada: vários blocos lidos entre dois ciclos da UI viram poucas mensagens.
+    // PTY output is batched: several chunks read between two UI cycles become a few messages.
     private readonly object _pendingLock = new();
     private readonly Dictionary<int, MemoryStream> _pending = new();
     private readonly List<int> _pendingOrder = new();
@@ -37,7 +37,7 @@ internal sealed class TerminalBridge
         web.WebMessageReceived += OnMessage;
     }
 
-    // ------------------------------------------------------- mensagens da página
+    // ------------------------------------------------------- messages from the page
 
     private void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -90,7 +90,7 @@ internal sealed class TerminalBridge
                 break;
 
             case "run":
-                // Clique numa pasta da barra lateral: o texto já vem no dialeto do shell (cd / Set-Location).
+                // Folder click in the sidebar: the text already comes in the shell's dialect (cd / Set-Location).
                 if (_sessions.TryGetValue(id, out var runner)) runner.Write(Encoding.UTF8.GetBytes(Str(msg, "text")));
                 break;
 
@@ -161,7 +161,7 @@ internal sealed class TerminalBridge
 
     private static void TrySetClipboard(string text)
     {
-        // A área de transferência pode estar ocupada por outro app por alguns ms.
+        // The clipboard may be held by another app for a few ms.
         for (int i = 0; i < 5; i++)
         {
             try { Clipboard.SetText(text); return; }
@@ -169,7 +169,7 @@ internal sealed class TerminalBridge
         }
     }
 
-    // ----------------------------------------------------------------- sessões
+    // ----------------------------------------------------------------- sessions
 
     private void Spawn(int id, string profileId, string cwd, int cols, int rows)
     {
@@ -212,13 +212,14 @@ internal sealed class TerminalBridge
         {
             if (d.DriveType is not (DriveType.Fixed or DriveType.Removable or DriveType.Network) || !d.IsReady) continue;
             var label = d.Name.TrimEnd('\\');
-            try { if (!string.IsNullOrEmpty(d.VolumeLabel)) label = $"{d.VolumeLabel} ({label})"; } catch (IOException) { }
+            try { if (!string.IsNullOrEmpty(d.VolumeLabel)) label = $"{d.VolumeLabel} ({label})"; }
+            catch (Exception) { /* network drive without access to its label */ }
             list.Add(new { name = label, path = d.RootDirectory.FullName, icon = "disk" });
         }
         return list;
     }
 
-    /// Conteúdo de uma pasta: pastas primeiro, depois arquivos, em ordem natural (como o Explorador).
+    /// Folder contents: folders first, then files, in natural order (like File Explorer).
     private void ListDirectory(int reqId, int tabId, string path, string host)
     {
         var profile = _tabProfiles.GetValueOrDefault(tabId) ?? _profiles[0];
@@ -253,7 +254,7 @@ internal sealed class TerminalBridge
         });
     }
 
-    /// "arquivo2" antes de "arquivo10", sem diferenciar maiúsculas (StrCmpLogicalW, o mesmo do Explorador).
+    /// "file2" before "file10", case-insensitive (StrCmpLogicalW, the same as File Explorer).
     private sealed class NaturalComparer : IComparer<string>
     {
         public static readonly NaturalComparer Instance = new();
@@ -268,7 +269,7 @@ internal sealed class TerminalBridge
         _sessions.Clear();
     }
 
-    // ------------------------------------------------------- saída para a página
+    // ------------------------------------------------------- output to the page
 
     private void EnqueueOutput(int id, byte[] data)
     {
@@ -302,9 +303,9 @@ internal sealed class TerminalBridge
             _web?.PostWebMessageAsJson($"{{\"t\":\"data\",\"id\":{id},\"b64\":\"{Convert.ToBase64String(data)}\"}}");
     }
 
-    /// Envia uma mensagem JSON para a página (JT.recv).
+    /// Sends a JSON message to the page (JT.recv).
     public void Send(object message) => _web?.PostWebMessageAsJson(JsonSerializer.Serialize(message));
 
-    /// Executa um comando da interface (vindo da bandeja do sistema).
+    /// Runs a UI command (from the system tray).
     public void Command(string name, object? arg = null) => Send(new { t = "cmd", name, arg });
 }

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Ajustes persistidos em ~/Library/Application Support/RonicJustTerminal/settings.json.
+/// Settings persisted in ~/Library/Application Support/RonicJustTerminal/settings.json.
 ///
-/// O formato é definido pela interface (shared-web/app.js); o lado nativo só guarda o JSON
-/// e lê o que precisa (a opacidade, para ligar/desligar o vidro). Assim, ao reabrir o app,
-/// a opacidade e os demais ajustes voltam exatamente como estavam.
+/// The format is owned by the web UI (shared-web/app.js); the native side only stores the JSON
+/// and reads what it needs (the opacity, to turn the glass on/off). That way, when the app is
+/// reopened, the opacity and every other setting come back exactly as they were.
 final class SettingsStore {
     static let shared = SettingsStore()
 
@@ -13,13 +13,13 @@ final class SettingsStore {
     private let queue = DispatchQueue(label: "justterminal.settings", qos: .utility)
 
     private init() {
-        // JT_DATA_DIR: pasta alternativa (autoteste), para não mexer nos dados reais.
+        // JT_DATA_DIR: alternate folder (self-test), so the real data is never touched.
         let base = ProcessInfo.processInfo.environment["JT_DATA_DIR"].map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("RonicJustTerminal", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("settings.json")
-        // Migração: as primeiras builds gravavam em ~/Library/Application Support/JustTerminal.
+        // Migration: the first builds wrote to ~/Library/Application Support/JustTerminal.
         let legacy = base.appendingPathComponent("JustTerminal/settings.json")
         if !FileManager.default.fileExists(atPath: url.path), FileManager.default.fileExists(atPath: legacy.path) {
             try? FileManager.default.copyItem(at: legacy, to: url)
@@ -30,7 +30,7 @@ final class SettingsStore {
         }
     }
 
-    /// Histórico de comandos da barra lateral (history.json, ao lado dos ajustes).
+    /// Sidebar command history (history.json, next to the settings).
     private(set) lazy var history: [Any] = {
         guard let data = try? Data(contentsOf: historyURL),
               let list = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
@@ -46,7 +46,13 @@ final class SettingsStore {
         queue.async { try? data.write(to: url, options: .atomic) }
     }
 
-    /// Opacidade da camada escura sobre o vidro (1 = totalmente escuro, o padrão).
+    /// App data folder (settings, history, shell integration).
+    var dataDirectory: URL { url.deletingLastPathComponent() }
+
+    /// Prompt with the full path (default: on).
+    var fullPathPrompt: Bool { (values["fullPathPrompt"] as? Bool) ?? true }
+
+    /// Opacity of the dark layer over the glass (1 = fully dark, the default).
     var opacity: Double { (values["opacity"] as? NSNumber)?.doubleValue ?? 1 }
 
     func replace(with newValues: [String: Any]) {

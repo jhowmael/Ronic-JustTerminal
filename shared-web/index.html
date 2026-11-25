@@ -66,6 +66,10 @@
             </span>
           </h3>
           <div class="sb-body history-body">
+            <div class="segmented small" id="history-scope" role="tablist" aria-label="Quais comandos mostrar">
+              <button data-value="tab" title="Só os comandos digitados nesta aba">Esta aba</button>
+              <button data-value="all" title="Comandos de todas as abas, inclusive de vezes anteriores">Todas</button>
+            </div>
             <input id="history-filter" type="search" placeholder="Filtrar comandos…" spellcheck="false" autocomplete="off">
             <ul class="history" role="list"></ul>
           </div>
@@ -116,6 +120,7 @@
     </label>
 
     <label class="toggle"><input id="show-sidebar" type="checkbox"><span>Barra lateral (pastas e histórico)</span></label>
+    <label class="toggle mac-only"><input id="full-path-prompt" type="checkbox"><span>Prompt com o caminho completo (novas abas)</span></label>
     <label class="toggle"><input id="cursor-blink" type="checkbox"><span>Cursor piscando</span></label>
     <label class="toggle"><input id="copy-on-select" type="checkbox"><span>Copiar ao selecionar</span></label>
     <label class="toggle mac-only"><input id="option-as-meta" type="checkbox"><span>Option como Meta (Alt)</span></label>

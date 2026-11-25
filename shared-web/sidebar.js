@@ -1,12 +1,12 @@
-/* Ronic JustTerminal: barra lateral (pastas + histórico).
+/* Ronic JustTerminal: sidebar (folders + history).
  *
- * Pastas: espelha a pasta atual do shell da aba ativa (cd → a árvore acompanha) e permite navegar
- * por cliques (um clique numa pasta digita o "cd" no terminal). A pasta atual vem do app nativo
- * ("cwd", macOS) ou do próprio shell via OSC 7 / OSC 9;9 (Windows, WSL, Git Bash).
+  * Folders: mirrors the current directory of the active tab's shell (cd → the tree follows) and lets
+  * you navigate by clicking (a click on a folder types the "cd" into the terminal). The current
+  * directory comes from the native app ("cwd", macOS) or from the shell itself via OSC 7 / OSC 9;9.
  *
- * Histórico: os comandos digitados (capturados em app.js), com botões Copiar e Inserir.
+  * History: the typed commands (captured in app.js), with Copy and Insert buttons.
  *
- * Este arquivo não fala com o sistema: tudo passa pela `api` entregue por app.js.
+  * This file never talks to the system: everything goes through the `api` provided by app.js.
  */
 'use strict';
 
@@ -19,7 +19,7 @@ window.createSidebar = function createSidebar(api) {
   const filterEl = $('#history-filter');
 
   const cache = new Map();     // "host|caminho" → { entries, error, stale }
-  const pending = new Map();   // reqId → chave do cache
+  const pending = new Map();   // reqId → cache key
   let nextReq = 1;
   let selectedPath = null;
   let lastCwdKey = '';
@@ -34,7 +34,7 @@ window.createSidebar = function createSidebar(api) {
 
   // ------------------------------------------------------------ caminhos
 
-  /** Contexto de caminhos da aba: estilo (posix ou win), raiz da árvore, home, pasta atual. */
+  /** Path context of a tab: style (posix or win), tree root, home, current directory. */
   function context(tab) {
     const profile = api.profileOf(tab);
     const style = profile.kind === 'powershell' || profile.kind === 'cmd' ? 'win' : 'posix';
@@ -88,7 +88,7 @@ window.createSidebar = function createSidebar(api) {
     return i >= 0 ? p.slice(i + 1) || p : p;
   }
 
-  /** Pastas entre `root` e `path` (inclusive), para expandir a árvore até a pasta atual. */
+  /** Folders between `root` and `path` (inclusive), to expand the tree down to the current directory. */
   function chain(root, path, style) {
     if (!isUnder(path, root, style)) return [root];
     const s = sep(style);
@@ -99,7 +99,7 @@ window.createSidebar = function createSidebar(api) {
     return out;
   }
 
-  /** Converte um caminho do Windows (C:\x) para o formato do shell posix da aba (WSL / Git Bash). */
+  /** Converts a Windows path (C:\x) into the format of the tab's posix shell (WSL / Git Bash). */
   function toShellPath(path, ctx) {
     if (ctx.style === 'win' || !/^[A-Za-z]:\\/.test(path)) return path;
     const drive = path[0].toLowerCase();
@@ -108,7 +108,7 @@ window.createSidebar = function createSidebar(api) {
     return `/${drive}/${rest}`.replace(/\/$/, '');
   }
 
-  /** Comando "cd" no dialeto do shell. O prefixo limpa o que estiver digitado na linha. */
+  /** "cd" command in the shell's dialect. The prefix clears whatever is typed on the line. */
   function cdCommand(path, ctx) {
     switch (ctx.profile.kind) {
       case 'powershell': return `\x1bSet-Location -LiteralPath '${path.replace(/'/g, "''")}'\r`;
@@ -117,7 +117,7 @@ window.createSidebar = function createSidebar(api) {
     }
   }
 
-  /** Caminho pronto para colar num comando (com aspas quando precisa). */
+  /** Path ready to paste into a command (quoted when needed). */
   function quoted(path, ctx) {
     if (/^[\w@%+=:,./\\~-]+$/.test(path)) return path;
     if (ctx.profile.kind === 'powershell') return `'${path.replace(/'/g, "''")}'`;
@@ -153,7 +153,7 @@ window.createSidebar = function createSidebar(api) {
     request(ctx, path, true);
   }
 
-  // --------------------------------------------------------------- árvore
+  // --------------------------------------------------------------- tree
 
   function renderTree() {
     const tab = api.activeTab();
@@ -198,7 +198,7 @@ window.createSidebar = function createSidebar(api) {
     let shown = 0;
     for (const e of entry.entries) {
       const childPath = join(path, e.n, ctx.style);
-      // Ocultos só aparecem com o "olho" ligado, exceto no caminho até a pasta atual.
+      // Hidden entries only show up with the "eye" on, except on the path to the current directory.
       if (e.h && !s.showHidden && !(e.d && ctx.cwd && isUnder(ctx.cwd, childPath, ctx.style))) continue;
       if (e.d) {
         renderNode(frag, ctx, childPath, e.n, depth + 1, null, !!e.h);
@@ -265,7 +265,7 @@ window.createSidebar = function createSidebar(api) {
     });
   }
 
-  // ------------------------------------------------------------- ações
+  // ------------------------------------------------------------- actions
 
   function navigate(path) {
     const tab = api.activeTab();
@@ -368,11 +368,23 @@ window.createSidebar = function createSidebar(api) {
     if (row) rowMenu(ev, row.dataset.path, 'dir');
   });
 
-  // ----------------------------------------------------------- histórico
+  // ----------------------------------------------------------- history
+
+  /** Visible history: the active tab's (default) or every tab's, without duplicates. */
+  function visibleHistory() {
+    const tab = api.activeTab();
+    if (api.state.settings.historyScope !== 'all') {
+      return tab ? api.state.history.filter((h) => h.tab === tab.id && h.run === api.state.runId) : [];
+    }
+    const seen = new Set();
+    return api.state.history.filter((h) => !seen.has(h.cmd) && seen.add(h.cmd));
+  }
 
   function renderHistory() {
     const q = filterEl.value.trim().toLowerCase();
-    const items = api.state.history.filter((h) => !q || h.cmd.toLowerCase().includes(q));
+    const scope = api.state.settings.historyScope === 'all' ? 'all' : 'tab';
+    document.querySelectorAll('#history-scope button').forEach((b) => b.classList.toggle('on', b.dataset.value === scope));
+    const items = visibleHistory().filter((h) => !q || h.cmd.toLowerCase().includes(q));
     const frag = document.createDocumentFragment();
     for (const h of items.slice(0, 300)) {
       const li = document.createElement('li');
@@ -389,7 +401,8 @@ window.createSidebar = function createSidebar(api) {
     if (!items.length) {
       const li = document.createElement('li');
       li.className = 'empty';
-      li.textContent = q ? 'Nada encontrado' : 'Os comandos que você digitar aparecem aqui';
+      li.textContent = q ? 'Nada encontrado'
+        : scope === 'tab' ? 'Os comandos digitados nesta aba aparecem aqui' : 'Os comandos que você digitar aparecem aqui';
       frag.appendChild(li);
     }
     historyEl.replaceChildren(frag);
@@ -406,6 +419,10 @@ window.createSidebar = function createSidebar(api) {
     if (li && !ev.target.closest('.actions')) api.insert(li.dataset.cmd);
   });
   filterEl.addEventListener('input', renderHistory);
+  $('#history-scope').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (b) api.setSetting('historyScope', b.dataset.value);
+  });
   filterEl.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       const first = historyEl.querySelector('li[data-cmd]');
@@ -433,7 +450,7 @@ window.createSidebar = function createSidebar(api) {
     api.toast('Histórico limpo');
   });
 
-  // ------------------------------------------------ seções, botões, largura
+  // ------------------------------------------------ sections, buttons, width
 
   for (const section of document.querySelectorAll('.sb-section')) {
     section.querySelector('.sb-toggle').addEventListener('click', () => {
@@ -482,11 +499,12 @@ window.createSidebar = function createSidebar(api) {
     }
     renderPlaces();
     renderTree();
+    renderHistory();
   }
 
-  // ------------------------------------------------ eventos vindos de app.js
+  // ------------------------------------------------ events coming from app.js
 
-  /** Aba ativa mudou ou a pasta atual dela mudou: expande até a pasta e rola até ela. */
+  /** The active tab changed or its current directory changed: expand down to it and scroll to it. */
   function syncToTab(tab) {
     if (!tab || tab.id !== (api.activeTab() || {}).id) return;
     const ctx = context(tab);
@@ -501,10 +519,11 @@ window.createSidebar = function createSidebar(api) {
     if (moved && ctx.cwd) invalidate(ctx, ctx.cwd);
     renderPlaces();
     renderTree();
+    renderHistory();
     if (moved) scrollToCurrent();
   }
 
-  /** Um comando terminou (prompt de novo): a pasta atual pode ter arquivos novos. */
+  /** A command finished (prompt is back): the current directory may have new files. */
   function onPrompt(tab) {
     if (!tab || tab.id !== (api.activeTab() || {}).id || !tab.cwd) return;
     invalidate(context(tab), tab.cwd);

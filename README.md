@@ -5,166 +5,177 @@
 <h1 align="center">Ronic JustTerminal</h1>
 
 <p align="center">
-  <b>Um terminal minimalista e rápido, com abas, pastas na lateral e histórico de comandos.</b><br>
-  Visual de vidro com opacidade ajustável · continua rodando ao fechar a janela · macOS e Windows
+  <b>A fast, minimal terminal with tabs, a folder sidebar and per-tab command history.</b><br>
+  Glass look with adjustable opacity · keeps running when you close the window · macOS and Windows
 </p>
 
 <p align="center">
   <a href="https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-macOS.zip">
-    <img src="https://img.shields.io/badge/Download-macOS-19E27B?style=for-the-badge&logo=apple&logoColor=white" alt="Download para macOS">
+    <img src="https://img.shields.io/badge/Download-macOS-19E27B?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS">
   </a>
   &nbsp;
   <a href="https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-Windows.zip">
-    <img src="https://img.shields.io/badge/Download-Windows-19E27B?style=for-the-badge&logo=windows&logoColor=white" alt="Download para Windows">
+    <img src="https://img.shields.io/badge/Download-Windows-19E27B?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/jhowmael/Ronic-JustTerminal/releases">Todas as versões</a> ·
-  <a href="#instalação">Instalação</a> ·
-  <a href="#atalhos">Atalhos</a> ·
-  <a href="#rodar-e-testar-localmente">Rodar localmente</a> ·
-  <a href="docs/BRIDGE.md">Arquitetura</a>
+  <a href="https://github.com/jhowmael/Ronic-JustTerminal/releases">All releases</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#keyboard-shortcuts">Shortcuts</a> ·
+  <a href="#build-and-test-locally">Build locally</a> ·
+  <a href="docs/BRIDGE.md">Architecture</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Ronic JustTerminal com a barra lateral de pastas e o histórico de comandos" width="860">
+  <img src="docs/screenshot-main.png" alt="Ronic JustTerminal with the folder sidebar, the full-path prompt and the per-tab command history" width="900">
 </p>
 
 ---
 
 ## Downloads
 
-| Sistema | Arquivo | Requisitos |
+| System | File | Requirements |
 |---|---|---|
-| **macOS** (Apple Silicon e Intel) | [`RonicJustTerminal-macOS.zip`](https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-macOS.zip) | macOS 13 Ventura ou mais recente |
-| **Windows** (64 bits) | [`RonicJustTerminal-Windows.zip`](https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-Windows.zip) | Windows 10 (1809+) ou Windows 11 |
+| **macOS** (Apple Silicon and Intel) | [`RonicJustTerminal-macOS.zip`](https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-macOS.zip) | macOS 13 Ventura or later |
+| **Windows** (64-bit) | [`RonicJustTerminal-Windows.zip`](https://github.com/jhowmael/Ronic-JustTerminal/releases/latest/download/RonicJustTerminal-Windows.zip) | Windows 10 (1809+) or Windows 11 |
 
-## O que ele faz
+## Features
 
-* **Abas independentes.** Cada aba tem a sua própria sessão de shell. Dá para abrir, alternar, renomear (duplo clique), reordenar (arrastar) e fechar. Uma bolinha amarela avisa quando há saída nova numa aba em segundo plano.
-* **Pastas na lateral.** A árvore de pastas acompanha o terminal: um `cd development` atualiza a lateral na hora. Também funciona ao contrário: clique numa pasta (na árvore, no caminho ou em **Locais**) e o `cd` é digitado por você. Clique com o botão direito para abrir uma aba nova ali, copiar ou inserir o caminho, mostrar no Finder/Explorador ou fixar em Locais. Um duplo clique num arquivo insere o caminho dele no terminal.
-* **Histórico de comandos.** Tudo que você digita aparece na lateral, com busca. Cada comando tem dois botões: **Copiar** e **Inserir no terminal** (sem executar, para você conferir antes do Enter).
-* **Vidro com opacidade ajustável.** Ele já abre bem escuro (100% de opacidade). Diminua em **Ajustes** para o vidro aparecer (Liquid Glass no macOS 26, Acrylic no Windows 11). A escolha fica salva e volta igual na próxima vez que você abrir o app.
-* **Continua rodando em segundo plano.** Fechar a janela **não** encerra os shells. No macOS, o ícone **R_** na barra de menus reabre a janela, abre uma aba nova ou encerra o app. No Windows, o ícone fica na bandeja do sistema, com as mesmas opções.
-* **Rápido.** O xterm.js usa WebGL, a leitura do PTY roda em thread própria e há controle de fluxo: `cat` de um arquivo enorme não trava a janela. A interface não tem frameworks, só HTML, CSS e JS puros.
-* **Shells.** No macOS: o seu shell de login (zsh/bash), além de bash, fish e nushell quando instalados. No Windows: PowerShell 7, Windows PowerShell, Prompt de Comando, WSL e Git Bash.
+* **Independent tabs.** Every tab runs its own shell session. Open, switch, rename (double-click), reorder (drag) and close them. A yellow dot tells you when a background tab has new output.
+* **Folder sidebar that follows the terminal.** Run `cd development` and the tree, the path bar and **Places** update right away. It also works the other way around: click a folder and the `cd` is typed for you. Right-click a folder to open a new tab there, copy or insert its path, reveal it in Finder/File Explorer or pin it to Places. Double-click a file to insert its path into the terminal.
+* **Per-tab command history.** Every command you type shows up in the sidebar under **This tab** (*Esta aba*), with a search box. **All** (*Todas*) merges every tab and keeps the history across launches. Each entry has two buttons: **Copy** and **Insert into terminal**. Insert types the command without running it, so you can review it before pressing Enter.
+* **Full-path prompt.** On macOS, the prompt shows where you are, like Windows does (`/Users/you/development %` instead of `Mac-mini:development you$`). It only replaces the system default prompt; custom prompts (oh-my-zsh, starship, your own `PS1`) are left alone. It never edits your shell files and can be turned off in Settings.
+* **Glass with adjustable opacity.** The window starts fully dark (100% opacity). Lower the opacity in Settings to let the glass show through: Liquid Glass on macOS 26, Acrylic on Windows 11. Your choice is saved and restored on the next launch.
+* **Keeps running in the background.** Closing the window does **not** end your shells. On macOS, the **R_** icon in the menu bar reopens the window, opens a new tab with any shell, or quits for good. On Windows, the same actions live in the system tray icon.
+* **Fast.** The xterm.js renderer uses WebGL, PTY reads run on their own thread, and flow control keeps `cat huge-file` from freezing the window. The UI is plain HTML, CSS and JavaScript, with no framework.
+* **Shells.** On macOS: your login shell (zsh/bash), plus bash, fish and nushell when installed. On Windows: PowerShell 7, Windows PowerShell, Command Prompt, WSL and Git Bash.
 
-## Instalação
+<p align="center">
+  <img src="docs/screenshot-settings.png" alt="Settings panel: opacity, font, cursor, default shell, sidebar and full-path prompt" width="440">
+  &nbsp;
+  <img src="docs/screenshot-minimal.png" alt="Minimal mode with the sidebar hidden" width="440">
+</p>
+
+> The app's UI is in Portuguese (Brazil): *Ajustes* = Settings, *Pastas* = Folders, *Locais* = Places, *Histórico* = History.
+
+## Installation
 
 ### macOS
 
-1. Baixe e descompacte `RonicJustTerminal-macOS.zip`. Arraste **RonicJustTerminal.app** para **Aplicativos**. Ele aparece no Spotlight e no Launchpad como **Ronic JustTerminal**, junto dos outros apps Ronic.
-2. Abra o app. Na primeira vez, o macOS pode bloquear: vá em **Ajustes do Sistema › Privacidade e Segurança** e clique em **Abrir Mesmo Assim**. Se preferir o Terminal: `xattr -dr com.apple.quarantine /Applications/RonicJustTerminal.app`.
-3. Quando um comando acessar Documentos, Mesa ou Downloads, o macOS pede permissão uma vez, como em qualquer terminal.
+1. Download and unzip `RonicJustTerminal-macOS.zip`. Drag **RonicJustTerminal.app** into **Applications**. It shows up in Spotlight and Launchpad as **Ronic JustTerminal**, next to the other Ronic apps.
+2. Open the app. The first time, macOS may block it: go to **System Settings › Privacy & Security** and click **Open Anyway**. From Terminal instead: `xattr -dr com.apple.quarantine /Applications/RonicJustTerminal.app`.
+3. The first time a command touches Documents, Desktop or Downloads, macOS asks for permission once, as it does for any terminal.
 
 ### Windows
 
-1. Baixe e descompacte `RonicJustTerminal-Windows.zip` em qualquer pasta (por exemplo, `C:\Ronic JustTerminal`). Mantenha a pasta `web` ao lado do `.exe`.
-2. Abra **RonicJustTerminal.exe**. Se o SmartScreen avisar, clique em **Mais informações › Executar assim mesmo**.
-3. Ele usa o **Microsoft Edge WebView2 Runtime**, que já vem no Windows 11 e no Windows 10 atualizado. Se estiver faltando, o app mostra o link.
+1. Download and unzip `RonicJustTerminal-Windows.zip` anywhere, for example `C:\Ronic JustTerminal`. Keep the `web`, `x64` and `arm64` folders and the `.dll` files next to the `.exe`.
+2. Run **RonicJustTerminal.exe**. If SmartScreen warns you, click **More info › Run anyway**.
+3. It uses the **Microsoft Edge WebView2 Runtime**, which ships with Windows 11 and up-to-date Windows 10. If it is missing, the app shows the download link.
 
-## Atalhos
+## Keyboard shortcuts
 
-| Ação | macOS | Windows |
+| Action | macOS | Windows |
 |---|---|---|
-| Nova aba | ⌘T | Ctrl+Shift+T |
-| Fechar aba | ⌘W | Ctrl+Shift+W |
-| Próxima / anterior | ⇧⌘] / ⇧⌘[ ou ⌃Tab | Ctrl+Tab / Ctrl+Shift+Tab |
-| Ir para a aba 1…9 | ⌘1…⌘9 | Ctrl+Alt+1…9 |
-| Renomear aba | ⇧⌘R ou duplo clique | Ctrl+Shift+R ou duplo clique |
-| Barra lateral (pastas e histórico) | ⌃⌘S | Ctrl+Shift+B |
-| Copiar / colar | ⌘C / ⌘V | Ctrl+Shift+C (ou Ctrl+C com seleção) / Ctrl+V |
-| Limpar | ⌘K | — |
-| Fonte maior / menor / padrão | ⌘= / ⌘- / ⌘0 | Ctrl+= / Ctrl+- / Ctrl+0 |
-| Ajustes | ⌘, | Ctrl+, |
-| Fechar a janela (continua rodando) | ⇧⌘W ou botão vermelho | botão X |
-| Encerrar de verdade | ⌘Q ou **Encerrar** na barra de menus | **Sair** na bandeja |
+| New tab | ⌘T | Ctrl+Shift+T |
+| Close tab | ⌘W | Ctrl+Shift+W |
+| Next / previous tab | ⇧⌘] / ⇧⌘[ or ⌃Tab | Ctrl+Tab / Ctrl+Shift+Tab |
+| Go to tab 1…9 | ⌘1…⌘9 | Ctrl+Alt+1…9 |
+| Rename tab | ⇧⌘R or double-click | Ctrl+Shift+R or double-click |
+| Sidebar (folders and history) | ⌃⌘S | Ctrl+Shift+B |
+| Copy / paste | ⌘C / ⌘V | Ctrl+Shift+C (or Ctrl+C with a selection) / Ctrl+V |
+| Clear | ⌘K | — |
+| Bigger / smaller / default font | ⌘= / ⌘- / ⌘0 | Ctrl+= / Ctrl+- / Ctrl+0 |
+| Settings | ⌘, | Ctrl+, |
+| Close the window (keeps running) | ⇧⌘W or the red button | the X button |
+| Quit for real | ⌘Q or **Quit** in the menu bar | **Exit** in the tray |
 
-Links no terminal abrem com ⌘+clique (macOS) ou Ctrl+clique (Windows).
+Links in the terminal open with ⌘-click (macOS) or Ctrl-click (Windows).
 
-## Estrutura do projeto
+## Project structure
 
 ```
 Ronic-JustTerminal/
-├── shared-web/              Interface compartilhada (macOS e Windows)
-│   ├── index.html           Barra de abas, barra lateral, painel de ajustes
-│   ├── style.css            Visual de vidro, tema escuro
-│   ├── app.js               Abas, xterm.js, atalhos, histórico, ponte com o nativo
-│   ├── sidebar.js           Árvore de pastas, Locais, caminho atual, lista do histórico
-│   └── vendor/              xterm.js 6 + addons (WebGL, fit, links, unicode), sem CDN
-├── macos/                   App nativo macOS (Swift, AppKit + WKWebView)
+├── shared-web/              Shared UI (macOS and Windows)
+│   ├── index.html           Tab bar, sidebar, settings panel
+│   ├── style.css            Glass look, dark theme
+│   ├── app.js               Tabs, xterm.js, shortcuts, command history, bridge to the native app
+│   ├── sidebar.js           Folder tree, Places, path bar, history list
+│   └── vendor/              xterm.js 6 + addons (WebGL, fit, links, unicode), no CDN
+├── macos/                   Native macOS app (Swift, AppKit + WKWebView)
 │   ├── Package.swift
 │   ├── Resources/           Info.plist, AppIcon.icns
 │   └── Sources/RonicJustTerminal/
-│       ├── App/             AppDelegate, menu principal, ícone da barra de menus, ajustes
-│       ├── Window/          Janela com vidro (NSGlassEffectView / NSVisualEffectView)
-│       └── Terminal/        PTYSession (forkpty), TerminalBridge, perfis de shell
-├── windows/                 App nativo Windows (C#, .NET 10, WinForms + WebView2)
-│   └── RonicJustTerminal/   MainForm (bandeja), ConPtySession (ConPTY), TerminalBridge…
-├── branding/                Logo (gerado em código) e script de ícones
-├── scripts/                 Empacotamento macOS/Windows, assinatura local, atualizar xterm.js
-├── docs/BRIDGE.md           Contrato interface ↔ nativo, pasta atual, histórico, controle de fluxo
-└── .github/workflows/       Release: compila macOS e Windows e publica os .zip
+│       ├── App/             AppDelegate, main menu, menu bar icon, settings, self-test
+│       ├── Window/          Window with glass (NSGlassEffectView / NSVisualEffectView)
+│       └── Terminal/        PTYSession (forkpty), TerminalBridge, shell profiles, prompt integration
+├── windows/                 Native Windows app (C#, .NET 10, WinForms + WebView2)
+│   └── RonicJustTerminal/   MainForm (tray), ConPtySession (ConPTY), TerminalBridge…
+├── branding/                Logo (generated in code) and icon script
+├── scripts/                 macOS/Windows packaging, local signing, screenshots, xterm.js update
+├── docs/BRIDGE.md           UI ↔ native contract, current directory, history, flow control
+└── .github/workflows/       Release: builds macOS and Windows and publishes the .zip files
 ```
 
-A **interface e o gerenciamento de abas** ficam em `shared-web/`, iguais nas duas plataformas. A **camada de PTY** é nativa e separada: `PTYSession.swift` usa `forkpty` com zsh/bash no macOS, e `ConPtySession.cs` usa ConPTY com PowerShell, cmd ou WSL no Windows. As duas camadas conversam por um contrato de mensagens JSON ([`docs/BRIDGE.md`](docs/BRIDGE.md)).
+The **UI and tab management** live in `shared-web/` and are the same on both platforms. The **PTY layer** is native and separate: `PTYSession.swift` uses `forkpty` with zsh/bash on macOS, and `ConPtySession.cs` uses ConPTY with PowerShell, cmd or WSL on Windows. On Windows, the app ships the same up-to-date ConPTY that Windows Terminal uses (`conpty.dll` + `OpenConsole.exe`). The two layers talk through a JSON message contract ([`docs/BRIDGE.md`](docs/BRIDGE.md)).
 
-## Rodar e testar localmente
+## Build and test locally
 
-### Interface (qualquer sistema, sem compilar nada)
+### UI only (any OS, nothing to compile)
 
 ```bash
-make web-dev          # abre shared-web/index.html no navegador
+make web-dev          # opens shared-web/index.html in the browser
 ```
 
-A página roda em **modo demonstração**, com um eco local e uma árvore de pastas falsa (`cd` funciona). Use esse modo para ajustar o visual, as abas e a barra lateral.
+The page runs in **demo mode**, with a local echo and a fake folder tree where `cd` works. Use it to work on the look, the tabs and the sidebar.
 
 ### macOS
 
-Requer o **Xcode** ou as Command Line Tools (`xcode-select --install`).
+Requires **Xcode** or the Command Line Tools (`xcode-select --install`).
 
 ```bash
-make mac-dev          # compila e abre o app (swift run), usando shared-web/ direto do repositório
-make mac-test         # autoteste: shell real, cd, barra lateral, histórico, 2 abas → build/selftest/*.json
-make app              # gera dist/RonicJustTerminal.app e dist/RonicJustTerminal-macOS.zip
+make mac-dev          # build and run the app (swift run), loading shared-web/ straight from the repo
+make mac-test         # self-test: real shell, cd, sidebar, history, 2 tabs → build/selftest/*.json
+make screenshots      # regenerate the README screenshots from the real app → docs/screenshot-*.png
+make app              # build dist/RonicJustTerminal.app and dist/RonicJustTerminal-macOS.zip
 open dist/RonicJustTerminal.app
 ```
 
-* `JT_DEVTOOLS=1 make mac-dev` habilita o Web Inspector (botão direito › Inspecionar Elemento).
-* Na sua máquina, `make app` assina com um certificado local estável (`scripts/dev-signing.sh`). Assim as permissões de pastas sobrevivem às recompilações.
+* `JT_DEVTOOLS=1 make mac-dev` enables the Web Inspector (right-click › Inspect Element).
+* On your machine, `make app` signs with a stable local certificate (`scripts/dev-signing.sh`), so folder permissions survive rebuilds.
+* The self-test and screenshot modes use their own data folder (`JT_DATA_DIR`), so they never touch your settings or your shell history.
 
 ### Windows
 
-Requer o **.NET SDK 10**. O pacote pode ser gerado no próprio Mac ou num Linux:
+Requires the **.NET 10 SDK**. The package can be built on a Mac or on Linux:
 
 ```bash
-make windows          # gera dist/RonicJustTerminal-Windows.zip
+make windows          # builds dist/RonicJustTerminal-Windows.zip
 ```
 
-No Windows, para desenvolver: `cd windows\RonicJustTerminal && dotnet run`. Detalhes em [`windows/README.md`](windows/README.md).
+On Windows, for development: `cd windows\RonicJustTerminal && dotnet run`. Details in [`windows/README.md`](windows/README.md).
 
-### Checklist de teste manual
+### Manual test checklist
 
-1. Abra várias abas (⌘T / Ctrl+Shift+T), renomeie uma com duplo clique e arraste para reordenar.
-2. Rode `cd ~/Downloads`: a árvore e o caminho na lateral devem seguir. Clique em outra pasta na lateral: o `cd` aparece no terminal.
-3. Rode alguns comandos e confira o **Histórico**: teste **Copiar** e **Inserir**.
-4. Em **Ajustes**, baixe a opacidade para ~60%, feche o app (⌘Q) e abra de novo: a opacidade tem que ser a mesma.
-5. Feche a janela (botão vermelho / X): os shells continuam vivos. Reabra pelo ícone da barra de menus ou da bandeja.
-6. `yes` ou `cat` de um arquivo grande: a janela continua respondendo, e Ctrl+C interrompe na hora.
+1. Open several tabs (⌘T / Ctrl+Shift+T), rename one with a double-click and drag it to reorder.
+2. Run `cd ~/Downloads`: the sidebar tree and the path bar should follow. Click another folder in the sidebar: the `cd` shows up in the terminal.
+3. Run a few commands in two different tabs and check that **History › This tab** only shows that tab's commands. Try **Copy** and **Insert**.
+4. In **Settings**, lower the opacity to ~60%, quit the app (⌘Q) and open it again: the opacity must be the same.
+5. Close the window (red button / X): the shells keep running. Reopen it from the menu bar or tray icon.
+6. Run `yes` or `cat` a big file: the window stays responsive, and Ctrl+C stops it immediately.
 
-## Publicar uma versão
+## Publishing a release
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.0 && git push origin v0.3.0
 ```
 
-O workflow [`release.yml`](.github/workflows/release.yml) compila o app macOS (universal) e o Windows (x64) e publica `RonicJustTerminal-macOS.zip` e `RonicJustTerminal-Windows.zip` no GitHub Releases. Os botões de download no topo deste README sempre apontam para a versão mais recente.
+The [`release.yml`](.github/workflows/release.yml) workflow builds the macOS app (universal) and the Windows app (x64) and publishes `RonicJustTerminal-macOS.zip` and `RonicJustTerminal-Windows.zip` to GitHub Releases. The download buttons at the top of this README always point to the latest release.
 
 ## Logo
 
-O logo é um **R** branco sobre fundo preto, com caracteres verdes caindo atrás como saída de terminal e um cursor piscando. A geometria é a mesma da família Ronic (Ronic Mirror e Ronic MacToWindows). Ele é gerado em código por [`branding/make-icons.swift`](branding/make-icons.swift). Para regenerar os PNGs, o `.icns` e o `.ico`, rode `make icons`.
+The logo is a white **R** on a black background, with green characters raining down behind it like terminal output, plus a blinking cursor. It shares its geometry with the rest of the Ronic family (Ronic Mirror and Ronic MacToWindows). It is generated in code by [`branding/make-icons.swift`](branding/make-icons.swift). Run `make icons` to regenerate the PNGs, the `.icns` and the `.ico`.
 
 ---
 
-Parte da família **Ronic**: [Ronic Mirror](https://github.com/jhowmael/Ronic-Mirror) · [Ronic MacToWindows](https://github.com/jhowmael/Ronic-MacToWindows)
+Part of the **Ronic** family: [Ronic Mirror](https://github.com/jhowmael/Ronic-Mirror) · [Ronic MacToWindows](https://github.com/jhowmael/Ronic-MacToWindows)

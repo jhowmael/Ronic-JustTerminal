@@ -1,10 +1,10 @@
 import AppKit
 import WebKit
 
-/// A janela principal: vidro nativo ao fundo, a interface web (abas + xterm.js) por cima e uma
-/// camada fina que transforma a área vazia da barra de abas em "barra de título" arrastável.
+/// The main window: native glass in the back, the web UI (tabs + xterm.js) on top and a thin
+/// layer that turns the empty part of the tab bar into a draggable "title bar".
 ///
-/// Fechar a janela NÃO encerra os shells: ela só é escondida e o app continua na barra de menus.
+/// Closing the window does NOT end the shells: it is only hidden and the app stays in the menu bar.
 final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate, TerminalBridgeDelegate {
     static let tabBarHeight: CGFloat = 38
 
@@ -31,7 +31,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
         window.center()
         window.setFrameAutosaveName("RonicJustTerminalMainWindow")
 
-        // Vidro: Liquid Glass (macOS 26+) ou o material translúcido clássico.
+        // Glass: Liquid Glass (macOS 26+) or the classic translucent material.
         glassView = Self.makeGlassView()
 
         let config = WKWebViewConfiguration()
@@ -87,7 +87,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
         webView.loadFileURL(dir.appendingPathComponent("index.html"), allowingReadAccessTo: dir)
     }
 
-    /// No .app: Contents/Resources/web. Em desenvolvimento (`swift run`): ../shared-web do repositório.
+    /// In the .app: Contents/Resources/web. In development (`swift run`): the repo's ../shared-web.
     private static func webDirectory() -> URL? {
         var candidates: [URL] = []
         if let override = ProcessInfo.processInfo.environment["JT_WEB_DIR"] {
@@ -101,7 +101,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // A página nunca navega para fora: links abrem no navegador padrão.
+        // The page never navigates away: links open in the default browser.
         if action.navigationType == .linkActivated, let url = action.request.url {
             NSWorkspace.shared.open(url)
             decisionHandler(.cancel)
@@ -111,7 +111,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // Se o processo web cair, os shells continuam vivos, mas a página perde o estado.
+        // If the web process crashes, the shells stay alive but the page loses its state.
         bridge.terminateAll()
         loadInterface()
     }
@@ -129,7 +129,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
 
     func hide() {
         window?.orderOut(nil)
-        // Em segundo plano: sai do Dock e do ⌘Tab; fica só o ícone na barra de menus.
+        // In the background: leaves the Dock and ⌘Tab; only the menu bar icon remains.
         NSApp.setActivationPolicy(.accessory)
     }
 
@@ -159,13 +159,13 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
         return effect
     }
 
-    /// Com 100% de opacidade o vidro fica escondido: nada a compor, menos trabalho para a GPU.
+    /// At 100% opacity the glass is hidden: nothing to composite, less GPU work.
     private func applyOpacity(_ opacity: Double) {
         glassView.isHidden = opacity >= 0.999
         window?.invalidateShadow()
     }
 
-    // MARK: - Botões da janela (semáforo) centralizados na barra de abas
+    // MARK: - Window buttons (traffic lights) centered in the tab bar
 
     private func layoutTrafficLights() {
         guard let window, !window.styleMask.contains(.fullScreen) else { return }
@@ -197,12 +197,12 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
     }
 }
 
-/// Janela que entrega os atalhos com ⌘ ao menu ANTES do WKWebView: o terminal nunca recebe
-/// ⌘T, ⌘W, ⌘C… e o menu nativo decide o que fazer (nova aba, copiar a seleção do xterm etc.).
+/// Window that hands ⌘ shortcuts to the menu BEFORE the WKWebView: the terminal never receives
+/// ⌘T, ⌘W, ⌘C… and the native menu decides what to do (new tab, copy the xterm selection, etc.).
 final class TerminalWindow: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags
-        let ctrlTab = event.keyCode == 48 && flags.contains(.control)   // ⌃Tab / ⌃⇧Tab trocam de aba
+        let ctrlTab = event.keyCode == 48 && flags.contains(.control)   // ⌃Tab / ⌃⇧Tab switch tabs
         if flags.contains(.command) || ctrlTab, NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
             return true
         }
@@ -210,17 +210,17 @@ final class TerminalWindow: NSWindow {
     }
 }
 
-/// WKWebView que aceita o primeiro clique (clicar numa janela inativa já posiciona o cursor/aba).
+/// WKWebView that accepts the first click (clicking an inactive window already places the cursor/tab).
 final class TerminalWebView: WKWebView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Camada transparente sobre a barra de abas: só "existe" (hitTest) nas áreas vazias que a
-/// página informou; ali o clique arrasta a janela e o duplo clique faz zoom, como numa barra de título.
+/// Transparent layer over the tab bar: it only "exists" (hitTest) in the empty areas reported by
+/// the page; there a click drags the window and a double click zooms, like a title bar.
 final class DragRegionView: NSView {
     var regions: [NSRect] = []
 
-    override var isFlipped: Bool { true }   // mesmas coordenadas da página (origem no topo)
+    override var isFlipped: Bool { true }   // same coordinates as the page (origin at the top)
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)

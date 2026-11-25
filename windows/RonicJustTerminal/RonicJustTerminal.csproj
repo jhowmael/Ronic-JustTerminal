@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Permite compilar o .exe também no macOS/Linux (CI ou máquina de desenvolvimento). -->
+    <!-- Lets the .exe be built on macOS/Linux too (CI or a dev machine). -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
 
     <AssemblyName>RonicJustTerminal</AssemblyName>
@@ -18,20 +18,26 @@
     <ApplicationIcon>Assets\ronic.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
-    <!-- Um único .exe que roda sem instalar o .NET. -->
+    <!-- A single .exe that runs without installing .NET. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- conpty.dll and WebView2Loader.dll stay next to the .exe: conpty.dll looks for
+         OpenConsole.exe in x64\ / arm64\ relative to its own folder (scripts/package-windows.sh
+         copies the OpenConsole.exe files from the NuGet package). -->
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>embedded</DebugType>
     <TieredPGO>true</TieredPGO>
-    <!-- O pacote WebView2 traz também a versão WPF; o conflito de WindowsBase não afeta o WinForms. -->
+    <!-- The WebView2 package also brings the WPF flavor; the WindowsBase conflict doesn't affect WinForms. -->
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
+    <!-- Up-to-date ConPTY (the same one Windows Terminal uses): passes through the OSC sequences
+         for the current directory and the prompt, which the ConPTY built into Windows 10 drops. Without it, the system one is used. -->
+    <PackageReference Include="Microsoft.Windows.Console.ConPTY" Version="1.25.261109001" />
   </ItemGroup>
 
   <ItemGroup>

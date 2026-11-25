@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Empacota o Ronic JustTerminal para Windows (x64). Roda no macOS, Linux ou Windows (Git Bash):
-#   dist/RonicJustTerminal-Windows/        RonicJustTerminal.exe + web\
-#   dist/RonicJustTerminal-Windows.zip     pronto para o GitHub Releases
+# Packages Ronic JustTerminal for Windows (x64). Runs on macOS, Linux or Windows (Git Bash):
+#   dist/RonicJustTerminal-Windows/        RonicJustTerminal.exe + web\ + conpty.dll + x64\, arm64\
+#   dist/RonicJustTerminal-Windows.zip     ready for GitHub Releases
 #
-# Requer: .NET SDK 10+.   Variável opcional: VERSION=0.2.0
+# Requires: .NET SDK 10+.   Optional variable: VERSION=0.2.0
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,30 +15,42 @@ echo "==> Ronic JustTerminal $VERSION (Windows x64)"
 rm -rf "$OUT" "$ZIP" "$ROOT/build/windows-publish"
 mkdir -p "$OUT"
 
-echo "==> Compilando RonicJustTerminal.exe"
+echo "==> Building RonicJustTerminal.exe"
 dotnet publish "$ROOT/windows/RonicJustTerminal/RonicJustTerminal.csproj" -c Release \
   -p:Version="$VERSION" -o "$ROOT/build/windows-publish" --nologo -v quiet
 cp "$ROOT/build/windows-publish/RonicJustTerminal.exe" "$OUT/RonicJustTerminal.exe"
-# Bibliotecas nativas que o single-file não embute (WebView2Loader etc.), se houver.
+# Native libraries next to the .exe: WebView2Loader.dll, conpty.dll and OpenConsole.exe (x64\, arm64\).
 find "$ROOT/build/windows-publish" -maxdepth 1 -name "*.dll" -exec cp {} "$OUT/" \;
+# OpenConsole.exe (the up-to-date ConPTY host) comes from the Microsoft.Windows.Console.ConPTY NuGet package.
+CSPROJ="$ROOT/windows/RonicJustTerminal/RonicJustTerminal.csproj"
+CONPTY_VER="$(sed -n 's/.*Microsoft.Windows.Console.ConPTY" Version="\([^"]*\)".*/\1/p' "$CSPROJ")"
+NUGET_DIR="$(dotnet nuget locals global-packages -l | sed 's/^global-packages: *//')"
+CONPTY_PKG="$NUGET_DIR/microsoft.windows.console.conpty/$CONPTY_VER/build/native/runtimes"
+for arch in x64 arm64; do
+  if [[ ! -f "$CONPTY_PKG/$arch/OpenConsole.exe" ]]; then
+    echo "ERROR: OpenConsole.exe ($arch) not found in $CONPTY_PKG" >&2; exit 1
+  fi
+  mkdir -p "$OUT/$arch" && cp "$CONPTY_PKG/$arch/OpenConsole.exe" "$OUT/$arch/"
+done
+[[ -f "$OUT/conpty.dll" ]] || { echo "ERROR: conpty.dll was not published" >&2; exit 1; }
 
-echo "==> Copiando interface web"
+echo "==> Copying the web UI"
 cp -R "$ROOT/shared-web" "$OUT/web"
 
-cat > "$OUT/LEIA-ME.txt" <<TXT
-Ronic JustTerminal $VERSION para Windows 10 (1809+) e 11
+cat > "$OUT/README.txt" <<TXT
+Ronic JustTerminal $VERSION for Windows 10 (1809+) and 11
 
-1. Abra RonicJustTerminal.exe (deixe a pasta "web" ao lado dele).
-2. Se o SmartScreen avisar, clique em "Mais informações" > "Executar assim mesmo".
+1. Run RonicJustTerminal.exe (keep the "web", "x64" and "arm64" folders and the .dll files next to it).
+2. If SmartScreen warns you, click "More info" > "Run anyway".
 
-Ao fechar a janela, o app continua na bandeja do sistema com as sessões abertas.
-Para encerrar: botão direito no ícone da bandeja > Sair.
+Closing the window keeps the app running in the system tray with your sessions open.
+To quit: right-click the tray icon > Sair (Exit).
 
-Atalhos: Ctrl+Shift+T nova aba, Ctrl+Shift+W fecha, Ctrl+Tab troca, Ctrl+Shift+B barra lateral,
-Ctrl+Shift+C / Ctrl+V copiar/colar, Ctrl+, ajustes.
+Shortcuts: Ctrl+Shift+T new tab, Ctrl+Shift+W close tab, Ctrl+Tab switch, Ctrl+Shift+B sidebar,
+Ctrl+Shift+C / Ctrl+V copy/paste, Ctrl+, settings.
 
-Requer o Microsoft Edge WebView2 Runtime (já vem no Windows 11 e no Windows 10 atualizado).
-Mais informações: https://github.com/jhowmael/Ronic-JustTerminal
+Requires the Microsoft Edge WebView2 Runtime (built into Windows 11 and up-to-date Windows 10).
+More info: https://github.com/jhowmael/Ronic-JustTerminal
 TXT
 
 (cd "$ROOT/dist" && rm -f "$ZIP" && \
@@ -46,4 +58,4 @@ TXT
   else powershell -NoProfile -Command "Compress-Archive -Path 'RonicJustTerminal-Windows' -DestinationPath 'RonicJustTerminal-Windows.zip'"; fi)
 
 echo
-echo "Pronto: $ZIP"
+echo "Done: $ZIP"

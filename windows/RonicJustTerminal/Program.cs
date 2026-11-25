@@ -8,7 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        // Instância única: abrir o app de novo só traz a janela existente (as sessões continuam).
+        // Single instance: launching the app again just brings back the existing window (sessions keep running).
         using var mutex = new Mutex(true, MutexName, out bool first);
         if (!first)
         {

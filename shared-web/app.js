@@ -1,11 +1,11 @@
-/* Ronic JustTerminal: interface compartilhada (abas, ajustes, atalhos).
+/* Ronic JustTerminal: shared UI (tabs, settings, shortcuts).
  *
- * Esta página NÃO conhece PTY nem sistema operacional. Ela conversa com o app nativo por
- * mensagens JSON (contrato em docs/BRIDGE.md):
+  * This page knows NOTHING about PTYs or the operating system. It talks to the native app through
+  * JSON messages (contract in docs/BRIDGE.md):
  *   macOS   → window.webkit.messageHandlers.jt.postMessage(json)   (Swift, WKWebView)
  *   Windows → window.chrome.webview.postMessage(json)               (C#, WebView2)
- *   navegador (sem app nativo) → modo demonstração com um "eco" local, útil para mexer na UI.
- * O app nativo responde chamando JT.recv(msg) / JT.data(id, base64).
+  *   browser (no native app) → demo mode with a local "echo", handy for working on the UI.
+  * The native app answers by calling JT.recv(msg) / JT.data(id, base64).
  */
 'use strict';
 
@@ -25,7 +25,7 @@
 
   // --------------------------------------------------------------- estado
   const DEFAULTS = {
-    opacity: 1,            // 1 = totalmente escuro (padrão); menor = mais vidro
+    opacity: 1,            // 1 = fully dark (default); lower = more glass
     fontSize: 13,
     fontFamily: '',
     lineHeight: 1.2,
@@ -35,11 +35,13 @@
     copyOnSelect: false,
     optionAsMeta: false,
     scrollback: 10000,
-    showSidebar: true,     // barra lateral com pastas e histórico
+    showSidebar: true,     // sidebar with folders and history
     sidebarWidth: 248,
     showHidden: false,
     showFiles: true,
     favorites: [],
+    historyScope: 'tab',   // sidebar history: 'tab' (this tab) or 'all' (every tab)
+    fullPathPrompt: true,  // macOS: the prompt shows the full path, like on Windows
   };
 
   const HISTORY_MAX = 300;
@@ -67,7 +69,7 @@
   };
 
   const MAX_WEBGL = 6;          // contextos WebGL vivos (o navegador limita ~16)
-  const ACK_CHUNK = 32 * 1024;  // controle de fluxo: confirma bytes já desenhados
+  const ACK_CHUNK = 32 * 1024;  // flow control: acknowledges bytes already drawn
 
   const state = {
     platform: macHost ? 'mac' : winHost ? 'win' : 'browser',
@@ -82,7 +84,8 @@
     webglBroken: false,
     home: '',
     places: [],
-    history: [],          // [{ cmd, cwd, at }], mais recente primeiro
+    history: [],          // [{ cmd, cwd, at, tab, run }], most recent first
+    runId: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), // tells tabs apart across app runs
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -141,7 +144,7 @@
     return opts;
   }
 
-  // ------------------------------------------------------------------ abas
+  // ------------------------------------------------------------------ tabs
   function newTab(profile, cwd) {
     const id = state.nextId++;
     profile = profile || state.settings.defaultProfile || (state.profiles[0] && state.profiles[0].id) || '';
@@ -163,15 +166,15 @@
 
     const tab = {
       id, profile, el, term, fit,
-      shellTitle: '',     // título definido pelo próprio shell (OSC 0/2)
-      customTitle: '',    // título dado pelo usuário (renomear)
-      cwd: '',            // pasta atual (nativo no macOS; OSC 7 / 9;9 no Windows)
+      shellTitle: '',     // title set by the shell itself (OSC 0/2)
+      customTitle: '',    // title given by the user (rename)
+      cwd: '',            // current directory (native on macOS; OSC 7 / 9;9 on Windows)
       cwdHost: '',
       expanded: new Set(),
-      promptMark: null,   // onde termina o prompt: o comando digitado começa ali
+      promptMark: null,   // where the prompt ends: the typed command starts there
       typedSinceMark: false,
       markTimer: 0,
-      integration: false, // o shell marca o prompt com OSC 133 (mais preciso)
+      integration: false, // the shell marks its prompt with OSC 133 (more accurate)
       webgl: null,
       activity: false,
       exited: false,
@@ -185,15 +188,15 @@
     term.onResize(({ cols, rows }) => host.post({ t: 'resize', id, cols, rows }));
     term.onTitleChange((title) => { tab.shellTitle = title || ''; renderTabs(); });
 
-    // Integração com o shell (sequências OSC que o próprio shell emite no prompt):
-    //   OSC 7    file://host/caminho  → pasta atual (zsh/bash/fish configurados, WSL, Git Bash)
-    //   OSC 9;9  "C:\caminho"         → pasta atual (PowerShell/cmd, padrão do Windows Terminal)
-    //   OSC 133  A/B                  → início/fim do prompt (captura exata do comando digitado)
+    // Shell integration (OSC sequences the shell itself emits in its prompt):
+    //   OSC 7    file://host/path     → current directory (configured zsh/bash/fish, WSL, Git Bash)
+    //   OSC 9;9  "C:\path"            → current directory (PowerShell/cmd, the Windows Terminal convention)
+    //   OSC 133  A/B                  → prompt start/end (exact capture of the typed command)
     term.parser.registerOscHandler(7, (data) => {
       const m = /^file:\/\/([^/]*)(\/.*)$/.exec(data);
       if (m) {
         let path = m[2];
-        try { path = decodeURIComponent(path); } catch (_) { /* mantém como veio */ }
+        try { path = decodeURIComponent(path); } catch (_) { /* keep it as it came */ }
         if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1).replace(/\//g, '\\');
         setCwd(tab, path, profileOf(tab).flavor === 'wsl' ? m[1] : '');
       }
@@ -272,17 +275,17 @@
   }
 
   function selectTab(n) {
-    // ⌘9 / Ctrl+Alt+9 = última aba, como nos navegadores
+    // ⌘9 / Ctrl+Alt+9 = last tab, like in browsers
     const tab = n >= 9 ? state.tabs[state.tabs.length - 1] : state.tabs[n - 1];
     if (tab) activate(tab.id);
   }
 
   function fitTab(tab) {
     if (!tab || !tab.el.classList.contains('active')) return;
-    try { tab.fit.fit(); } catch (_) { /* pane ainda sem tamanho */ }
+    try { tab.fit.fit(); } catch (_) { /* pane has no size yet */ }
   }
 
-  // WebGL só nas abas usadas recentemente; as demais caem no renderizador DOM.
+  // WebGL only on recently used tabs; the others fall back to the DOM renderer.
   function ensureWebgl(tab) {
     state.webglLRU = state.webglLRU.filter((t) => t !== tab);
     state.webglLRU.push(tab);
@@ -294,7 +297,7 @@
         tab.webgl = addon;
       } catch (err) {
         state.webglBroken = true;
-        console.warn('WebGL indisponível, usando o renderizador DOM', err);
+        console.warn('WebGL unavailable, using the DOM renderer', err);
       }
     }
     while (state.webglLRU.length > MAX_WEBGL) {
@@ -309,7 +312,6 @@
 
   function folderName(path) {
     if (!path) return '';
-    if (state.home && path === state.home) return '~';
     const parts = path.split(/[\\/]/).filter(Boolean);
     return parts.length ? parts[parts.length - 1] : path;
   }
@@ -351,7 +353,7 @@
     host.post({ t: 'tabs', count: state.tabs.length, title: tab ? tabTitle(tab) : '' });
   }, 30);
 
-  // Clique, clique do meio, duplo clique (renomear) e arrastar para reordenar.
+  // Click, middle click, double click (rename) and drag to reorder.
   tabsEl.addEventListener('mousedown', (ev) => {
     const el = ev.target.closest('.tab');
     if (!el || ev.target.closest('.close') || ev.target.closest('input')) return;
@@ -427,7 +429,7 @@
     const finish = (commit) => {
       if (done) return;
       done = true;
-      if (commit) tab.customTitle = input.value.trim(); // vazio = volta ao título automático
+      if (commit) tab.customTitle = input.value.trim(); // empty = back to the automatic title
       renderTabs();
       tab.term.focus();
     };
@@ -439,7 +441,7 @@
     input.addEventListener('blur', () => finish(true));
   }
 
-  // ------------------------------------------------- dados vindos do PTY
+  // ------------------------------------------------- data coming from the PTY
   function onData(id, b64) {
     const bytes = b64ToBytes(b64);
     const tab = tabById(id);
@@ -461,7 +463,7 @@
     tab.ackBytes = 0;
   }
 
-  // ------------------------------------------ pasta atual e histórico de comandos
+  // ------------------------------------------ current directory and command history
   function setCwd(tab, path, hostName) {
     if (!tab || !path) return;
     if (path === tab.cwd && (hostName || '') === tab.cwdHost) return;
@@ -471,18 +473,18 @@
     if (tab.id === state.activeId) sidebar.syncToTab(tab);
   }
 
-  // Sem integração do shell, o fim do prompt é deduzido: depois de um Enter (ou ^C), a última
-  // saída antes de o terminal ficar quieto é o prompt novo. Digitação (eco) não move a marca.
+  // Without shell integration, the end of the prompt is inferred: after Enter (or ^C), the last
+  // output before the terminal goes quiet is the new prompt. Typing (echo) doesn't move the mark.
   function trackInput(tab, data) {
     if (data === '\r') {
       captureCommand(tab);
       tab.typedSinceMark = false;
     } else if (data.length > 1 && data.includes('\r') && !data.startsWith('\x1b[200~')) {
-      // Texto + Enter num bloco só (colado, digitado por automação): o trecho antes do primeiro
-      // Enter completa a linha atual; as linhas inteiras seguintes também são comandos.
+      // Text + Enter in one chunk (pasted, typed by automation): the part before the first
+      // Enter completes the current line; any following whole lines are commands too.
       const parts = data.split('\r');
       captureCommand(tab, parts[0]);
-      parts.slice(1, -1).forEach((line) => addHistory(line.trim(), tab.cwd));
+      parts.slice(1, -1).forEach((line) => addHistory(line.trim(), tab));
       tab.typedSinceMark = parts[parts.length - 1].length > 0;
     } else if (data === '\x03' || data === '\x04') {
       tab.typedSinceMark = false;
@@ -506,7 +508,7 @@
 
   function captureCommand(tab, pending = '') {
     const b = tab.term.buffer.active;
-    if (b.type !== 'normal') return;              // vim, less, htop…: não é comando do shell
+    if (b.type !== 'normal') return;              // vim, less, htop…: not a shell command
     const cy = b.baseY + b.cursorY;
     const m = tab.promptMark;
     let text = '';
@@ -518,19 +520,21 @@
         text += line.translateToString(true, y === m.y ? m.x : 0);
       }
     } else {
-      // Sem marca confiável: tira o prompt pelo formato mais comum ("… $ ", "… % ", "❯ ").
+      // No reliable mark: strip the prompt using the most common shapes ("… $ ", "… % ", "❯ ").
       const line = b.getLine(cy);
       const raw = line ? line.translateToString(true) : '';
       const pm = /^.{0,100}?[$%#>❯»]\s(.*)$/.exec(raw);
       text = pm ? pm[1] : raw;
     }
-    addHistory((text + pending).trim(), tab.cwd);
+    addHistory((text + pending).trim(), tab);
   }
 
-  function addHistory(cmd, cwd) {
+  // Each command remembers the tab it was typed in: the sidebar shows the active tab's history
+  // (or every tab's). Repeating a command in the same tab just moves it to the top.
+  function addHistory(cmd, tab) {
     if (!cmd || cmd.length > 4000) return;
-    state.history = state.history.filter((h) => h.cmd !== cmd);
-    state.history.unshift({ cmd, cwd: cwd || '', at: Date.now() });
+    state.history = state.history.filter((h) => !(h.cmd === cmd && h.tab === tab.id && h.run === state.runId));
+    state.history.unshift({ cmd, cwd: tab.cwd || '', at: Date.now(), tab: tab.id, run: state.runId });
     if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
     sidebar.renderHistory();
     persistHistory();
@@ -564,7 +568,7 @@
     const tab = tabById(id);
     if (!tab) return;
     tab.exited = true;
-    // Shell que morre logo ao abrir (comando inválido etc.): mantém a aba para mostrar o motivo.
+    // A shell that dies right after starting (invalid command, etc.): keep the tab to show why.
     if (code !== 0 && performance.now() - tab.startedAt < 1500) {
       tab.term.write(`\r\n\x1b[31m[processo encerrado com código ${code}]\x1b[0m\r\n`);
       renderTabs();
@@ -581,7 +585,7 @@
     renderTabs();
   }
 
-  // ---------------------------------------------------------------- ajustes
+  // ---------------------------------------------------------------- settings
   const persistSettings = debounce(() => host.post({ t: 'saveSettings', settings: state.settings }), 250);
 
   function applySettings({ save = true } = {}) {
@@ -624,6 +628,7 @@
     $('#font-family').placeholder = FONT_STACK[state.platform].split(',')[0].replace(/"/g, '');
     $('#cursor-blink').checked = s.cursorBlink;
     $('#show-sidebar').checked = s.showSidebar;
+    $('#full-path-prompt').checked = s.fullPathPrompt;
     $('#copy-on-select').checked = s.copyOnSelect;
     $('#option-as-meta').checked = s.optionAsMeta;
     document.querySelectorAll('#cursor-style button').forEach((b) => b.classList.toggle('on', b.dataset.value === s.cursorStyle));
@@ -637,6 +642,7 @@
   $('#font-family').addEventListener('input', debounce((e) => setSetting('fontFamily', e.target.value), 400));
   $('#cursor-blink').addEventListener('change', (e) => setSetting('cursorBlink', e.target.checked));
   $('#show-sidebar').addEventListener('change', (e) => setSetting('showSidebar', e.target.checked));
+  $('#full-path-prompt').addEventListener('change', (e) => setSetting('fullPathPrompt', e.target.checked));
   $('#sidebar-btn').addEventListener('click', () => command('toggleSidebar'));
   $('#copy-on-select').addEventListener('change', (e) => setSetting('copyOnSelect', e.target.checked));
   $('#option-as-meta').addEventListener('change', (e) => setSetting('optionAsMeta', e.target.checked));
@@ -713,14 +719,14 @@
     if (!settingsEl.hidden && !settingsEl.contains(ev.target) && !ev.target.closest('#settings-btn')) closeSettings();
   });
 
-  // Campo de texto da UI (renomear aba, fonte) com foco: copiar/colar vão para ele, não para o shell.
+  // A UI text field (rename tab, font) has focus: copy/paste go to it, not to the shell.
   function focusedField() {
     const el = document.activeElement;
     return el && el.matches && el.matches('input[type="text"], input[type="search"], input.rename') ? el : null;
   }
 
   // ----------------------------------------------------------------- comandos
-  // Chamados pelo menu nativo (macOS), pela bandeja (Windows) ou pelos atalhos abaixo.
+  // Called by the native menu (macOS), the tray (Windows) or the shortcuts below.
   function command(name, arg) {
     const tab = activeTab();
     switch (name) {
@@ -752,12 +758,12 @@
       case 'zoomOut': return zoom(-1);
       case 'zoomReset': return zoom(0);
       case 'focus': return tab && tab.term.focus();
-      default: console.warn('comando desconhecido', name);
+      default: console.warn('unknown command', name);
     }
   }
 
-  // Atalhos. No macOS os atalhos com ⌘ são do menu nativo (que intercepta antes da página);
-  // aqui só garantimos que nenhum ⌘+tecla vaze para o shell. No Windows, tudo é tratado aqui.
+  // Shortcuts. On macOS, ⌘ shortcuts belong to the native menu (which intercepts them before the page);
+  // here we only make sure no ⌘+key leaks into the shell. On Windows, everything is handled here.
   const WIN_KEYS = [
     [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyT', () => command('newTab')],
     [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyW', () => command('closeTab')],
@@ -796,9 +802,9 @@
     }
   }, true);
 
-  // --------------------------------------------- arrastar a janela (macOS)
-  // A página informa ao app nativo onde fica a área "vazia" da barra de abas; ali o clique
-  // arrasta a janela (e o duplo clique maximiza), como numa barra de título.
+  // --------------------------------------------- window dragging (macOS)
+  // The page tells the native app where the "empty" part of the tab bar is; clicking there
+  // drags the window (and double-clicking maximizes it), like a title bar.
   let lastRegions = '';
   const scheduleDragRegions = () => requestAnimationFrame(publishDragRegions);
   function publishDragRegions() {
@@ -824,7 +830,7 @@
     fitFrame = requestAnimationFrame(() => { fitTab(activeTab()); publishDragRegions(); });
   }).observe(panesEl);
 
-  // --------------------------------------------------- mensagens do nativo
+  // --------------------------------------------------- messages from the native app
   function recv(msg) {
     switch (msg.t) {
       case 'init':
@@ -836,6 +842,7 @@
         state.home = msg.home || '';
         state.places = msg.places || [];
         state.history = Array.isArray(msg.history) ? msg.history : [];
+        if (msg.renderer === 'dom') state.webglBroken = true;   // screenshots (WKWebView snapshots don't include WebGL)
         sidebar.renderHistory();
         if (!state.profiles.some((p) => p.id === state.settings.defaultProfile)) state.settings.defaultProfile = '';
         $('#profile-btn').hidden = state.profiles.length < 2;
@@ -870,11 +877,11 @@
         document.documentElement.classList.toggle('fullscreen', !!msg.on);
         scheduleDragRegions();
         break;
-      default: console.warn('mensagem desconhecida', msg);
+      default: console.warn('unknown message', msg);
     }
   }
 
-  // Texto visível de cada aba (diagnóstico e autoteste do app nativo).
+  // Visible text of each tab (diagnostics and the native app's self-test).
   function dump() {
     return state.tabs.map((tab) => {
       const buf = tab.term.buffer.active;
@@ -884,23 +891,31 @@
     });
   }
 
-  // Digita como se fosse o usuário (autoteste do app nativo).
+  // Types as if it were the user (native app self-test).
   function type(text) { const tab = activeTab(); if (tab) tab.term.input(text, true); }
 
   window.JT = { recv, data: onData, dump, type };
 
-  // API para a barra lateral (sidebar.js): ela não fala com o nativo diretamente.
+  // API for the sidebar (sidebar.js): it never talks to the native app directly.
   const sidebar = window.createSidebar({
     state, host, activeTab, profileOf, setSetting, openMenu, toast, clearHistory,
     newTab: (profile, cwd) => newTab(profile, cwd),
     insert: insertText,
     copy: (text) => host.post({ t: 'copy', text }),
-    run: (tab, text) => { host.post({ t: 'run', id: tab.id, text }); tab.term.focus(); },
+    run: (tab, text) => {
+      // A full-screen program (vim, less, htop…) is open: the "cd" would be typed into it.
+      if (tab.term.buffer.active.type === 'alternate') {
+        toast('Há um programa aberto nesta aba. Saia dele para navegar pelas pastas.');
+        return;
+      }
+      host.post({ t: 'run', id: tab.id, text });
+      tab.term.focus();
+    },
     focusTerminal: () => { const tab = activeTab(); if (tab) tab.term.focus(); },
   });
   if (winHost) winHost.addEventListener('message', (e) => recv(typeof e.data === 'string' ? JSON.parse(e.data) : e.data));
 
-  // ------------------------------------------------ modo demonstração (navegador)
+  // ------------------------------------------------ demo mode (browser)
   const DEMO_FS = {
     '/': ['Applications', 'Users'],
     '/Applications': [],
@@ -923,7 +938,7 @@
   const Demo = {
     lines: {},
     cwd: {},
-    prompt(id) { return `\x1b[1;32m${this.cwd[id].replace('/Users/demo', '~')}\x1b[0m $ `; },
+    prompt(id) { return `\x1b[1;38;2;127;180;255m${this.cwd[id].replace('/Users/demo', '~')}\x1b[0m $ `; },
     cd(id, arg) {
       const target = !arg || arg === '~' ? '/Users/demo'
         : arg.startsWith('/') ? arg
@@ -940,7 +955,7 @@
       switch (msg.t) {
         case 'ready': {
           let saved = {};
-          try { saved = JSON.parse(localStorage.getItem('jt.settings') || '{}'); } catch (_) { /* sem storage */ }
+          try { saved = JSON.parse(localStorage.getItem('jt.settings') || '{}'); } catch (_) { /* no storage */ }
           send({ t: 'init', platform: 'browser', version: 'dev', settings: saved, home: '/Users/demo',
                  profiles: [{ id: 'demo', name: 'demo', kind: 'posix', home: '/Users/demo' },
                             { id: 'demo2', name: 'demo (2)', kind: 'posix', home: '/Users/demo' }],
@@ -990,7 +1005,7 @@
           break;
         }
         case 'saveSettings':
-          try { localStorage.setItem('jt.settings', JSON.stringify(msg.settings)); } catch (_) { /* sem storage */ }
+          try { localStorage.setItem('jt.settings', JSON.stringify(msg.settings)); } catch (_) { /* no storage */ }
           break;
         case 'copy':
           if (navigator.clipboard) navigator.clipboard.writeText(msg.text).catch(() => {});

@@ -3,9 +3,9 @@ using System.Text.Json.Nodes;
 
 namespace RonicJustTerminal;
 
-/// Ajustes persistidos em %APPDATA%\RonicJustTerminal\settings.json (formato definido pela
-/// interface; o nativo só guarda e lê a opacidade) e a posição da janela em window.json.
-/// Equivalente a SettingsStore.swift no macOS.
+/// Settings persisted in %APPDATA%\RonicJustTerminal\settings.json (format owned by the web
+/// UI; the native side only stores it and reads the opacity) and the window position in window.json.
+/// Counterpart of SettingsStore.swift on macOS.
 internal static class SettingsStore
 {
     private static readonly string Dir = Path.Combine(
@@ -18,7 +18,7 @@ internal static class SettingsStore
 
     public static JsonObject Values { get; private set; } = Load(SettingsPath);
 
-    /// Opacidade da camada escura sobre o vidro (1 = totalmente escuro, o padrão).
+    /// Opacity of the dark layer over the glass (1 = fully dark, the default).
     public static double Opacity => Values["opacity"] is JsonValue v && v.TryGetValue(out double d) ? d : 1;
 
     public static void Replace(JsonObject values)
@@ -27,7 +27,7 @@ internal static class SettingsStore
         Save(SettingsPath, values);
     }
 
-    /// Histórico de comandos da barra lateral.
+    /// Sidebar command history.
     public static JsonArray History
     {
         get
@@ -89,7 +89,7 @@ internal static class SettingsStore
         {
             if (File.Exists(path) && JsonNode.Parse(File.ReadAllText(path)) is JsonObject o) return o;
         }
-        catch (Exception) { /* arquivo corrompido: volta ao padrão */ }
+        catch (Exception) { /* corrupted file: fall back to defaults */ }
         return new JsonObject();
     }
 
@@ -106,7 +106,7 @@ internal static class SettingsStore
                 File.WriteAllText(tmp, json);
                 File.Move(tmp, path, overwrite: true);
             }
-            catch (Exception) { /* sem permissão de escrita: ignora */ }
+            catch (Exception) { /* no write permission: ignore */ }
         });
     }
 }

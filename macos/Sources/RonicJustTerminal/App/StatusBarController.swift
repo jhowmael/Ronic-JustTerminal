@@ -1,7 +1,7 @@
 import AppKit
 
-/// Ícone discreto na barra de menus (canto superior direito). Continua lá com a janela fechada:
-/// reabrir a janela, abrir uma aba nova (com qualquer shell) ou encerrar o app de vez.
+/// Discreet menu bar icon (top-right corner). It stays there with the window closed:
+/// reopen the window, open a new tab (with any shell) or quit the app for good.
 final class StatusBarController: NSObject, NSMenuDelegate {
     private weak var app: AppDelegate?
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -63,8 +63,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 }
 
-/// Versão monocromática do logo para a barra de menus: "R" + cursor de terminal.
-/// Imagem template: se adapta sozinha ao tema claro/escuro da barra.
+/// Monochrome version of the logo for the menu bar: "R" + terminal cursor.
+/// Template image: adapts automatically to the light/dark menu bar.
 enum StatusIcon {
     static let image: NSImage = {
         let size = NSSize(width: 20, height: 18)
@@ -75,7 +75,7 @@ enum StatusIcon {
             let x: CGFloat = 1
             r.draw(at: NSPoint(x: x, y: (rect.height - rSize.height) / 2))
 
-            // Cursor "_" à direita, na linha de base do R.
+            // "_" cursor on the right, on the R's baseline.
             NSColor.black.setFill()
             NSBezierPath(roundedRect: NSRect(x: x + rSize.width + 1, y: 3.2, width: 5, height: 1.8),
                          xRadius: 0.9, yRadius: 0.9).fill()

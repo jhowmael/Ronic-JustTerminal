@@ -1,7 +1,7 @@
 import AppKit
 import WebKit
 
-/// O que a ponte precisa da janela (implementado por TerminalWindowController).
+/// What the bridge needs from the window (implemented by TerminalWindowController).
 protocol TerminalBridgeDelegate: AnyObject {
     func bridgeDidUpdateDragRegions(_ rects: [NSRect])
     func bridgeDidChangeOpacity(_ opacity: Double)
@@ -9,8 +9,8 @@ protocol TerminalBridgeDelegate: AnyObject {
     func bridgeTabsChanged(count: Int, title: String)
 }
 
-/// Ponte entre a interface (shared-web, dentro do WKWebView) e as sessões de PTY.
-/// Contrato das mensagens: docs/BRIDGE.md.
+/// Bridge between the UI (shared-web, inside the WKWebView) and the PTY sessions.
+/// Message contract: docs/BRIDGE.md.
 final class TerminalBridge: NSObject, WKScriptMessageHandler {
     weak var webView: WKWebView?
     weak var delegate: TerminalBridgeDelegate?
@@ -21,8 +21,8 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
     private var pageReady = false
     private var queuedScripts: [String] = []
 
-    // Saída dos PTYs agrupada: vários blocos lidos entre dois ciclos da main thread viram
-    // uma única chamada evaluateJavaScript (menos IPC com o processo web).
+    // PTY output is batched: several chunks read between two main-thread cycles become a
+    // single evaluateJavaScript call (less IPC with the web process).
     private let pendingLock = NSLock()
     private var pending: [Int: Data] = [:]
     private var pendingOrder: [Int] = []
@@ -30,7 +30,7 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
 
     var sessionCount: Int { sessions.count }
 
-    // MARK: - Mensagens da página
+    // MARK: - Messages from the page
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? String,
@@ -47,9 +47,10 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
                 "platform": "mac",
                 "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
                 "settings": SettingsStore.shared.values,
-                "profiles": profiles.map(\.json),
-                "home": NSHomeDirectory(),
+                "profiles": profiles.map { p -> [String: Any] in var j = p.json; j["home"] = Self.home; return j },
+                "home": Self.home,
                 "places": Self.places(),
+                "renderer": ProcessInfo.processInfo.environment["JT_RENDERER"] ?? "webgl",
                 "history": SettingsStore.shared.history,
             ])
             queuedScripts.forEach { evaluate($0) }
@@ -77,7 +78,7 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
             sessions[id]?.ack((msg["bytes"] as? NSNumber)?.intValue ?? 0)
 
         case "run":
-            // Clique numa pasta da barra lateral: digita o "cd" só se o shell estiver no prompt.
+            // Folder click in the sidebar: types the "cd" only if the shell is at its prompt.
             guard let text = msg["text"] as? String, let session = sessions[id] else { return }
             if session.isBusy {
                 send(["t": "toast", "text": "Há um programa rodando nesta aba. Saia dele para navegar pelas pastas."])
@@ -145,11 +146,11 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
             delegate?.bridgeLastTabClosed()
 
         default:
-            NSLog("JustTerminal: mensagem desconhecida \(type)")
+            NSLog("Ronic JustTerminal: unknown message \(type)")
         }
     }
 
-    // MARK: - Sessões
+    // MARK: - Sessions
 
     private func spawn(id: Int, profileID: String, cwd: String, cols: Int, rows: Int) {
         let profile = profiles.first { $0.id == profileID } ?? profiles[0]
@@ -167,8 +168,16 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
         do {
             var isDir: ObjCBool = false
             let dir = !cwd.isEmpty && FileManager.default.fileExists(atPath: cwd, isDirectory: &isDir) && isDir.boolValue
-                ? cwd : NSHomeDirectory()
-            try session.start(profile: profile, cols: cols, rows: rows, cwd: dir)
+                ? cwd : Self.home
+            var extraEnv = SettingsStore.shared.fullPathPrompt ? ShellIntegration.environment(for: profile) : [:]
+            if ProcessInfo.processInfo.environment["JT_DATA_DIR"] != nil {
+                // Self-test / screenshots: nothing goes to the real ~/.zsh_history or ~/.bash_history.
+                let hist = SettingsStore.shared.dataDirectory.appendingPathComponent("shell_history").path
+                extraEnv["HISTFILE"] = hist
+                extraEnv["JT_HISTFILE"] = hist
+                extraEnv["CLICOLOR"] = "1"
+            }
+            try session.start(profile: profile, cols: cols, rows: rows, cwd: dir, extraEnv: extraEnv)
             sessions[id] = session
         } catch {
             send(["t": "spawnError", "id": id, "message": error.localizedDescription])
@@ -176,7 +185,7 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
     }
 
     #if DEBUG
-    /// Só para o autoteste: escreve na sessão mais recente.
+    /// Self-test only: writes to the most recent session.
     func debugWrite(_ text: String) {
         sessions.max { $0.key < $1.key }?.value.write(Data(text.utf8))
     }
@@ -184,8 +193,20 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
 
     // MARK: - Pastas (barra lateral)
 
-    /// Atalhos da seção "Locais", com os nomes localizados do Finder (Mesa, Documentos…).
+    /// Start folder. JT_DEMO_HOME (screenshots) swaps home for another folder so the real
+    /// home contents are not exposed.
+    static let home = ProcessInfo.processInfo.environment["JT_DEMO_HOME"] ?? NSHomeDirectory()
+
+    /// Shortcuts for the "Places" section, with Finder's localized names (Desktop, Documents…).
     private static func places() -> [[String: Any]] {
+        if ProcessInfo.processInfo.environment["JT_DEMO_HOME"] != nil {
+            let demo = Self.home
+            let subs = ["docs", "macos", "shared-web", "windows"].map { demo + "/" + $0 }
+                .filter { FileManager.default.fileExists(atPath: $0) }
+                .map { ["name": ($0 as NSString).lastPathComponent, "path": $0, "icon": "dir"] as [String: Any] }
+            return [["name": (demo as NSString).lastPathComponent, "path": demo, "icon": "home"]] + subs
+                + [["name": "Macintosh HD", "path": "/", "icon": "disk"]]
+        }
         let fm = FileManager.default
         let home = NSHomeDirectory()
         var list: [[String: Any]] = [["name": NSUserName(), "path": home, "icon": "home"]]
@@ -201,7 +222,7 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
         return list
     }
 
-    /// Conteúdo de uma pasta: pastas primeiro, depois arquivos, em ordem "natural" (como o Finder).
+    /// Folder contents: folders first, then files, in "natural" order (like Finder).
     private static func listDirectory(_ path: String) -> (entries: [[String: Any]], error: String) {
         let url = URL(fileURLWithPath: path, isDirectory: true)
         let keys: [URLResourceKey] = [.isDirectoryKey, .isHiddenKey, .isSymbolicLinkKey, .isPackageKey]
@@ -216,11 +237,11 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
         for item in items.prefix(5000) {
             let v = try? item.resourceValues(forKeys: Set(keys))
             var isDir = v?.isDirectory ?? false
-            if v?.isSymbolicLink == true {   // atalho para pasta conta como pasta
+            if v?.isSymbolicLink == true {   // a link to a folder counts as a folder
                 var target: ObjCBool = false
                 isDir = FileManager.default.fileExists(atPath: item.path, isDirectory: &target) && target.boolValue
             }
-            if v?.isPackage == true { isDir = false }   // .app e afins aparecem como arquivo, igual ao Finder
+            if v?.isPackage == true { isDir = false }   // .app and other bundles show up as files, like in Finder
             let name = item.lastPathComponent
             entries.append((name, isDir, (v?.isHidden ?? false) || name.hasPrefix(".")))
         }
@@ -231,13 +252,13 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
         return (entries.map { ["n": $0.name, "d": $0.dir, "h": $0.hidden] }, "")
     }
 
-    /// Encerra todos os shells (app saindo).
+    /// Terminates every shell (app quitting).
     func terminateAll() {
         sessions.values.forEach { $0.terminate() }
         sessions.removeAll()
     }
 
-    // MARK: - Saída para a página
+    // MARK: - Output to the page
 
     private func enqueueOutput(id: Int, data: Data) {
         pendingLock.lock()
@@ -271,14 +292,14 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
         evaluate(script + "void 0")
     }
 
-    /// Envia uma mensagem JSON para a página (JT.recv).
+    /// Sends a JSON message to the page (JT.recv).
     func send(_ message: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: message),
               let json = String(data: data, encoding: .utf8) else { return }
         evaluate("JT.recv(\(json));void 0")
     }
 
-    /// Executa um comando da interface (vindo do menu nativo ou do ícone da barra de menus).
+    /// Runs a UI command (from the native menu or the menu bar icon).
     func command(_ name: String, arg: Any? = nil) {
         var msg: [String: Any] = ["t": "cmd", "name": name]
         if let arg { msg["arg"] = arg }

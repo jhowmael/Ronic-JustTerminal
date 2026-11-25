@@ -1,7 +1,7 @@
-/* Ronic JustTerminal: interface compartilhada (macOS + Windows).
- * O fundo da janela é "vidro" nativo (NSGlassEffectView / NSVisualEffectView no macOS,
- * Acrylic no Windows 11). Esta página pinta por cima uma camada escura com a opacidade
- * escolhida em Ajustes: 100% = totalmente escuro, valores menores deixam o vidro aparecer. */
+/* Ronic JustTerminal: shared UI (macOS + Windows).
+  * The window background is native "glass" (NSGlassEffectView / NSVisualEffectView on macOS,
+  * Acrylic on Windows 11). This page paints a dark layer on top with the opacity chosen in
+  * Settings: 100% = fully dark, lower values let the glass show through. */
 
 :root {
   --opacity: 1;
@@ -39,7 +39,7 @@ html, body {
   cursor: default;
 }
 
-/* No navegador (modo demonstração) não há vidro nativo: simula um papel de parede. */
+/* In the browser (demo mode) there is no native glass: fake a wallpaper. */
 html.browser body {
   background: radial-gradient(circle at 20% 20%, #1d6b4a, transparent 50%),
               radial-gradient(circle at 80% 70%, #2a3b8f, transparent 55%), #101214;
@@ -53,7 +53,7 @@ html.browser body {
   background: rgba(var(--bg-rgb), var(--opacity));
 }
 
-/* ---------- Barra de abas ---------- */
+/* ---------- Tab bar ---------- */
 
 #tabbar {
   position: relative;
@@ -85,7 +85,7 @@ html.browser body {
   align-items: center;
   gap: 7px;
   height: 26px;
-  width: 180px;          /* largura explícita: o container calcula o tamanho por ela, não pelo texto */
+  width: 180px;          /* explicit width: the container sizes itself from it, not from the text */
   flex: 0 1 auto;
   min-width: 96px;
   padding: 0 6px 0 11px;
@@ -183,7 +183,7 @@ html.browser body {
 .icon-btn.small svg { width: 12px; height: 12px; }
 #settings-btn.on { color: var(--accent); background: var(--accent-soft); }
 
-/* ---------- Área de trabalho: barra lateral + terminais ---------- */
+/* ---------- Workspace: sidebar + terminals ---------- */
 
 #workspace { flex: 1 1 auto; display: flex; min-height: 0; }
 
@@ -193,7 +193,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 #sidebar-btn.on { color: var(--accent); }
 #sidebar-btn { margin-right: 4px; }
 
-/* ---------- Barra lateral ---------- */
+/* ---------- Sidebar ---------- */
 
 :root { --sidebar-w: 248px; --folder: #7fb4ff; }
 
@@ -264,7 +264,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 .sb-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
 .sb-section.grow > .sb-body { flex: 1 1 auto; min-height: 0; }
 
-/* Linhas (locais, árvore) */
+/* Rows (places, tree) */
 .node {
   display: flex;
   align-items: center;
@@ -339,7 +339,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 .crumbs .sep { color: var(--fg-faint); font-size: 10px; flex: 0 0 auto; }
 .crumbs:empty { display: none; }
 
-/* Histórico */
+/* History */
 .history-body { display: flex; flex-direction: column; gap: 6px; }
 #history-filter {
   width: 100%;
@@ -379,7 +379,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 .history .actions button:hover { color: var(--accent); }
 .history .empty { color: var(--fg-faint); font-style: italic; padding: 4px 7px; }
 
-/* Aviso rápido */
+/* Quick notice */
 #toast {
   position: fixed;
   left: 50%;
@@ -399,7 +399,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 }
 #toast[hidden] { display: none; }
 
-/* ---------- Terminais ---------- */
+/* ---------- Terminals ---------- */
 
 .pane {
   position: absolute;
@@ -413,7 +413,7 @@ html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 .pane .xterm .xterm-screen,
 .pane .xterm .xterm-scrollable-element { background-color: transparent !important; }
 
-/* ---------- Painel de ajustes (vidro) ---------- */
+/* ---------- Settings panel (glass) ---------- */
 
 .glass-panel, .glass-menu {
   position: fixed;
@@ -470,6 +470,8 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
   color: var(--fg-dim);
   background: transparent;
 }
+.segmented.small { flex: 0 0 auto; }
+.segmented.small button { padding: 3px 0; font-size: 11px; }
 .segmented button.on { color: #fff; background: var(--glass-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
 
 .toggle { display: flex; align-items: center; gap: 8px; padding: 7px 0; color: var(--fg); }
@@ -478,7 +480,7 @@ html:not(.mac) .mac-only { display: none; }
 
 #about { margin-top: 8px; color: var(--fg-faint); font-size: 11px; text-align: center; }
 
-/* ---------- Menu de contexto / perfis ---------- */
+/* ---------- Context menu / profiles ---------- */
 
 .glass-menu {
   min-width: 190px;

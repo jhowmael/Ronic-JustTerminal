@@ -1,39 +1,54 @@
 # Ronic JustTerminal: Windows
 
-App nativo para Windows 10 (1809+) e 11, x64, em **C# / .NET 10 / WinForms**, com **WebView2** e **ConPTY**. Ele não reimplementa a interface: carrega `/shared-web` (copiado para `web\` ao lado do `.exe`) e segue o mesmo contrato do app do macOS ([`docs/BRIDGE.md`](../docs/BRIDGE.md)).
+Native app for Windows 10 (1809+) and 11, x64, written in **C# / .NET 10 / WinForms** with **WebView2** and **ConPTY**. It does not reimplement the UI: it loads `/shared-web` (copied to `web\` next to the `.exe`) and follows the same contract as the macOS app ([`docs/BRIDGE.md`](../docs/BRIDGE.md)).
 
-## Arquivos
+## Files
 
-| Arquivo | Responsabilidade | Equivalente no macOS |
+| File | Responsibility | macOS counterpart |
 |---|---|---|
-| `Program.cs` | Entrada, instância única (abrir de novo só mostra a janela), DPI PerMonitorV2 | `main.swift` |
-| `MainForm.cs` | Janela com barra de título escura, vidro Acrylic, WebView2 transparente, **bandeja do sistema** (fechar = continuar em segundo plano) | `TerminalWindowController.swift` + `StatusBarController.swift` |
-| `TerminalBridge.cs` | Mensagens da página, sessões, saída agrupada, pastas, histórico | `TerminalBridge.swift` |
-| `ConPtySession.cs` | Pseudo-console (CreatePseudoConsole), leitura em thread própria, controle de fluxo | `PTYSession.swift` |
-| `ShellProfile.cs` | PowerShell 7, Windows PowerShell, cmd, WSL e Git Bash, com integração de prompt (pasta atual) | `ShellProfile.swift` |
-| `SettingsStore.cs` | `%APPDATA%\RonicJustTerminal\settings.json`, `history.json` e `window.json` | `SettingsStore.swift` |
-| `Native.cs` | P/Invoke: ConPTY (kernel32) e DWM (tema escuro, Acrylic) | — |
+| `Program.cs` | Entry point, single instance (launching again just shows the window), PerMonitorV2 DPI | `main.swift` |
+| `MainForm.cs` | Window with a dark title bar, Acrylic glass, transparent WebView2, **system tray** (closing = keep running in the background) | `TerminalWindowController.swift` + `StatusBarController.swift` |
+| `TerminalBridge.cs` | Page messages, sessions, batched output, folders, history | `TerminalBridge.swift` |
+| `ConPtySession.cs` | Pseudo console, reading on its own thread, flow control | `PTYSession.swift` |
+| `ShellProfile.cs` | PowerShell 7, Windows PowerShell, cmd, WSL and Git Bash, with a prompt integration (current directory) | `ShellProfile.swift` + `ShellIntegration.swift` |
+| `SettingsStore.cs` | `%APPDATA%\RonicJustTerminal\settings.json`, `history.json` and `window.json` | `SettingsStore.swift` |
+| `Native.cs` | P/Invoke: ConPTY (bundled `conpty.dll`, falling back to kernel32) and DWM (dark mode, Acrylic) | — |
 
-## Vidro e opacidade
+## ConPTY
 
-* **Opacidade 100%** (padrão): janela sólida e barra de título na cor do terminal.
-* **Menos de 100%**: no Windows 11 22H2+, o app liga o backdrop **Acrylic** (`DWMWA_SYSTEMBACKDROP_TYPE`) e estende o frame para a área cliente. O WebView2 transparente deixa o vidro aparecer. No Windows 10, a janela continua sólida e só a camada escura fica mais clara.
+The app ships the **Microsoft.Windows.Console.ConPTY** NuGet package, the same pseudo console Windows Terminal uses:
 
-## Compilar
+```
+RonicJustTerminal.exe
+conpty.dll
+x64\OpenConsole.exe
+arm64\OpenConsole.exe
+WebView2Loader.dll
+web\
+```
 
-Funciona no Windows, no macOS ou no Linux, graças a `EnableWindowsTargeting`:
+The ConPTY built into Windows 10 drops the OSC sequences the sidebar relies on (current directory, prompt marks). The bundled one passes them through. If the bundled files are missing, `Native.cs` falls back to the system ConPTY (kernel32): the terminal still works, but the sidebar may not follow `cd` on Windows 10.
+
+## Glass and opacity
+
+* **100% opacity** (default): solid window, title bar in the terminal color.
+* **Below 100%**: on Windows 11 22H2+, the app enables the **Acrylic** backdrop (`DWMWA_SYSTEMBACKDROP_TYPE`) and extends the frame into the client area. The transparent WebView2 lets the glass show through. On Windows 10 the window stays solid and only the dark layer gets lighter.
+
+## Build
+
+Works on Windows, macOS or Linux, thanks to `EnableWindowsTargeting`:
 
 ```bash
-# na raiz do repositório
+# from the repository root
 ./scripts/package-windows.sh          # → dist/RonicJustTerminal-Windows.zip
 ```
 
-Para rodar no Windows durante o desenvolvimento:
+To run on Windows during development:
 
 ```powershell
 cd windows\RonicJustTerminal
-dotnet run            # acha ..\..\shared-web sozinho
-$env:JT_DEVTOOLS=1    # (opcional) habilita F12 / DevTools no WebView2
+dotnet run            # finds ..\..\shared-web on its own
+$env:JT_DEVTOOLS=1    # (optional) enables F12 / DevTools in WebView2
 ```
 
-Requisitos para usar: Windows 10 1809 ou mais recente (ConPTY) e o **Microsoft Edge WebView2 Runtime** (já vem no Windows 11 e no Windows 10 atualizado; se faltar, o app oferece o link).
+Requirements to run: Windows 10 1809 or later (ConPTY) and the **Microsoft Edge WebView2 Runtime**. It ships with Windows 11 and up-to-date Windows 10; if it is missing, the app offers the download link.

@@ -1,7 +1,7 @@
 import AppKit
 
-/// Menu principal. Os atalhos com ⌘ ficam todos aqui (a janela os entrega ao menu antes do
-/// terminal), e cada item só repassa um comando para a interface web.
+/// Main menu. Every ⌘ shortcut lives here (the window hands them to the menu before the
+/// terminal sees them), and each item just forwards a command to the web UI.
 enum MainMenu {
     static func build(target: AppDelegate) -> NSMenu {
         let main = NSMenu()
