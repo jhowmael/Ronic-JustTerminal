@@ -84,7 +84,7 @@ Stage, unstage, discard and "mark resolved" also run in the background. Commit, 
 
 ## Terminal search
 
-The search field in the tab bar uses xterm.js's search addon (`addon-search`) on the active tab: decorations highlight every match (up to 2000), the active one in green, and `onDidChangeResults` feeds the `current/total` counter. Highlights are refreshed as new output arrives, and switching tabs moves the search to the new active tab.
+The search row above the terminal (right below the tabs) uses xterm.js's search addon (`addon-search`) on the active tab: decorations highlight every match (up to 2000), the active one in green, and `onDidChangeResults` feeds the `current/total` counter. Highlights are refreshed as new output arrives, and switching tabs moves the search to the new active tab.
 
 ## Command history
 

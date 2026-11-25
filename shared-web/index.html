@@ -10,9 +10,6 @@
 <body>
   <div id="app">
     <header id="tabbar">
-      <button id="sidebar-btn" class="icon-btn" title="Mostrar/ocultar barra lateral" aria-label="Barra lateral">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.25" y="3" width="11.5" height="10" rx="2"/><path d="M6.25 3v10"/></svg>
-      </button>
       <div id="tabs" role="tablist" aria-label="Abas"></div>
       <div class="tab-actions">
         <button id="new-tab" class="icon-btn" title="Nova aba" aria-label="Nova aba">
@@ -23,19 +20,9 @@
         </button>
       </div>
       <div id="drag-spacer"></div>
-      <div id="term-search" class="search-box" role="search">
-        <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3.25 3.25"/></svg>
-        <input id="search-input" type="search" placeholder="Buscar no terminal" spellcheck="false" autocomplete="off" aria-label="Buscar no terminal">
-        <span id="search-count" class="search-count" aria-live="polite"></span>
-        <button id="search-case" class="search-opt" title="Diferenciar maiúsculas e minúsculas" aria-pressed="false">Aa</button>
-        <button id="search-regex" class="search-opt" title="Expressão regular" aria-pressed="false">.*</button>
-        <button id="search-prev" class="icon-btn tiny" title="Anterior (Shift+Enter)" aria-label="Anterior">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 9.5 8 6l3.5 3.5"/></svg>
-        </button>
-        <button id="search-next" class="icon-btn tiny" title="Próxima (Enter)" aria-label="Próxima">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
-        </button>
-      </div>
+      <button id="sidebar-btn" class="icon-btn" title="Mostrar/ocultar barra lateral" aria-label="Barra lateral">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.25" y="3" width="11.5" height="10" rx="2"/><path d="M6.25 3v10"/></svg>
+      </button>
       <button id="git-btn" class="icon-btn" title="Mostrar/ocultar Git" aria-label="Git">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.75" r="1.5"/><circle cx="4.5" cy="12.25" r="1.5"/><circle cx="11.5" cy="5.75" r="1.5"/><path d="M4.5 5.25v5.5M11.5 7.25c0 2.5-3 2.5-5.6 4"/></svg>
       </button>
@@ -92,17 +79,34 @@
         </section>
       </aside>
       <div id="sb-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar"></div>
-      <main id="panes">
-        <section id="diff-view" class="glass-panel" hidden aria-label="Diferenças">
-          <header>
-            <span class="diff-title"></span>
-            <button id="diff-close" class="icon-btn small" title="Fechar (Esc)" aria-label="Fechar">
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg>
+      <div id="center">
+        <div id="search-bar">
+          <div id="term-search" class="search-box" role="search">
+            <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3.25 3.25"/></svg>
+            <input id="search-input" type="search" placeholder="Buscar no terminal" spellcheck="false" autocomplete="off" aria-label="Buscar no terminal">
+            <span id="search-count" class="search-count" aria-live="polite"></span>
+            <button id="search-case" class="search-opt" title="Diferenciar maiúsculas e minúsculas" aria-pressed="false">Aa</button>
+            <button id="search-regex" class="search-opt" title="Expressão regular" aria-pressed="false">.*</button>
+            <button id="search-prev" class="icon-btn tiny" title="Anterior (Shift+Enter)" aria-label="Anterior">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 9.5 8 6l3.5 3.5"/></svg>
             </button>
-          </header>
-          <pre class="diff-body"></pre>
-        </section>
-      </main>
+            <button id="search-next" class="icon-btn tiny" title="Próxima (Enter)" aria-label="Próxima">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
+            </button>
+          </div>
+        </div>
+        <main id="panes">
+          <section id="diff-view" class="glass-panel" hidden aria-label="Diferenças">
+            <header>
+              <span class="diff-title"></span>
+              <button id="diff-close" class="icon-btn small" title="Fechar (Esc)" aria-label="Fechar">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg>
+              </button>
+            </header>
+            <pre class="diff-body"></pre>
+          </section>
+        </main>
+      </div>
       <div id="git-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar"></div>
       <aside id="gitbar" aria-label="Git">
         <div id="git-head" class="git-head"></div>

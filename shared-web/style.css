@@ -187,11 +187,21 @@ html.browser body {
 
 #workspace { flex: 1 1 auto; display: flex; min-height: 0; }
 
+/* Center column: search row on top, terminals below. */
+#center { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 #panes { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+
+#search-bar {
+  flex: 0 0 auto;
+  display: flex;
+  padding: 5px 10px 5px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.005));
+}
 
 html.no-sidebar #sidebar, html.no-sidebar #sb-resizer { display: none; }
 #sidebar-btn.on { color: var(--accent); }
-#sidebar-btn { margin-right: 4px; }
+#sidebar-btn, #git-btn { margin-right: 2px; }
 
 /* ---------- Sidebar ---------- */
 
@@ -513,10 +523,9 @@ html:not(.mac) .mac-only { display: none; }
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 0 1 260px;
-  min-width: 150px;
-  height: 26px;
-  margin-right: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
   padding: 0 3px 0 8px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.28);
@@ -571,7 +580,7 @@ html:not(.mac) .mac-only { display: none; }
 .search-opt[aria-pressed="true"] { color: var(--folder); background: rgba(127, 180, 255, 0.16); }
 .search-box:not(:focus-within):not(.has-query) .search-opt,
 .search-box:not(:focus-within):not(.has-query) .icon-btn { display: none; }
-#git-btn.on { color: var(--folder); }
+#git-btn.on { color: var(--accent); }
 
 /* ---------- Right sidebar: Git ---------- */
 

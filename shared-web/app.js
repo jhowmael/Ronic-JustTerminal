@@ -962,10 +962,8 @@
     const bar = $('#tabbar').getBoundingClientRect();
     const tabs = tabsEl.getBoundingClientRect();
     const spacer = $('#drag-spacer').getBoundingClientRect();
-    const sbBtn = $('#sidebar-btn').getBoundingClientRect();
     const rects = [
-      { x: 0, y: 0, w: Math.max(0, sbBtn.left), h: bar.height },
-      { x: sbBtn.right, y: 0, w: Math.max(0, tabs.left - sbBtn.right), h: bar.height },
+      { x: 0, y: 0, w: Math.max(0, tabs.left), h: bar.height },
       { x: spacer.left, y: 0, w: spacer.width, h: bar.height },
       { x: tabs.left, y: 0, w: tabs.width, h: 2 },
     ].map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) }));
