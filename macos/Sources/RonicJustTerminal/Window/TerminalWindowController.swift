@@ -15,7 +15,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
 
     init() {
         let window = TerminalWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false)
         window.title = "Ronic JustTerminal"

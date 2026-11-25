@@ -5,7 +5,7 @@
 <h1 align="center">Ronic JustTerminal</h1>
 
 <p align="center">
-  <b>A fast, minimal terminal with tabs, a folder sidebar and per-tab command history.</b><br>
+  <b>A fast, minimal terminal with tabs, a folder sidebar, a Git sidebar and per-tab command history.</b><br>
   Glass look with adjustable opacity · keeps running when you close the window · macOS and Windows
 </p>
 
@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot-main.png" alt="Ronic JustTerminal with the folder sidebar, the full-path prompt and the per-tab command history" width="900">
+  <img src="docs/screenshot-main.png" alt="Ronic JustTerminal with the folder sidebar, the terminal search, the Git sidebar and the per-tab command history" width="900">
 </p>
 
 ---
@@ -44,17 +44,25 @@
 
 * **Independent tabs.** Every tab runs its own shell session. Open, switch, rename (double-click), reorder (drag) and close them. A yellow dot tells you when a background tab has new output.
 * **Folder sidebar that follows the terminal.** Run `cd development` and the tree, the path bar and **Places** update right away. It also works the other way around: click a folder and the `cd` is typed for you. Right-click a folder to open a new tab there, copy or insert its path, reveal it in Finder/File Explorer or pin it to Places. Double-click a file to insert its path into the terminal.
+* **Git sidebar (right).** Follows the active tab: inside a repository it shows the current branch, how many commits you are **ahead/behind** the remote (↑↓), the stash count and a warning when a **merge, rebase, cherry-pick or revert** is in progress, with **Continue** and **Abort** buttons. Below, the changed files split into *No stage* and *Fora do stage* (outside the stage): click a file to see its **colored diff**, use **+ / −** to stage or unstage it, or discard it (click twice to confirm). Write the message and press **Commit** or **Commit + Push**; with nothing staged, the commit takes every change (`git add -A`). The **Branches** list shows every local and remote branch with ↑↓ and the last commit date: click to switch (if you have uncommitted changes it offers to stash them first), right-click to merge, rebase, copy the name or delete, **+** to create a branch and the trash icon to delete branches that are already merged. Fetch, Pull and Push buttons sit at the top, and the app fetches from the remote every 5 minutes in the background (can be turned off).
+  * Reads run in the background and never ask for anything. Everything that changes the repository in a way you should see (commit, push, pull, switch, merge, rebase) is **typed into the terminal**, so you see the exact command and its output, and Git can ask for credentials, open your editor or run hooks there. If a program is running in the active tab (say, `dotnet run`), the command runs in a new tab in the same folder.
+* **Search in the terminal.** A dedicated field in the tab bar (not Ctrl+F/⌘F, which belong to the shell) highlights every match in the active tab, shows `current/total` and moves with Enter / Shift+Enter or the arrows, with case-sensitive (**Aa**) and regular-expression (**.\***) options. Handy for finding the error in the middle of a long `dotnet run` log; the highlights follow new output.
 * **Per-tab command history.** Every command you type shows up in the sidebar under **This tab** (*Esta aba*), with a search box. **All** (*Todas*) merges every tab and keeps the history across launches. Each entry has two buttons: **Copy** and **Insert into terminal**. Insert types the command without running it, so you can review it before pressing Enter.
 * **Full-path prompt.** On macOS, the prompt shows where you are, like Windows does (`/Users/you/development %` instead of `Mac-mini:development you$`). It only replaces the system default prompt; custom prompts (oh-my-zsh, starship, your own `PS1`) are left alone. It never edits your shell files and can be turned off in Settings.
+* **Both sidebars are optional.** Show or hide the left one (folders and history) and the right one (Git) in Settings, with the buttons at both ends of the tab bar, or with the shortcuts below. Drag their inner edge to resize them.
 * **Glass with adjustable opacity.** The window starts fully dark (100% opacity). Lower the opacity in Settings to let the glass show through: Liquid Glass on macOS 26, Acrylic on Windows 11. Your choice is saved and restored on the next launch.
 * **Keeps running in the background.** Closing the window does **not** end your shells. On macOS, the **R_** icon in the menu bar reopens the window, opens a new tab with any shell, or quits for good. On Windows, the same actions live in the system tray icon.
 * **Fast.** The xterm.js renderer uses WebGL, PTY reads run on their own thread, and flow control keeps `cat huge-file` from freezing the window. The UI is plain HTML, CSS and JavaScript, with no framework.
 * **Shells.** On macOS: your login shell (zsh/bash), plus bash, fish and nushell when installed. On Windows: PowerShell 7, Windows PowerShell, Command Prompt, WSL and Git Bash.
 
 <p align="center">
-  <img src="docs/screenshot-settings.png" alt="Settings panel: opacity, font, cursor, default shell, sidebar and full-path prompt" width="440">
+  <img src="docs/screenshot-diff.png" alt="Colored diff of a changed file, opened from the Git sidebar" width="440">
   &nbsp;
-  <img src="docs/screenshot-minimal.png" alt="Minimal mode with the sidebar hidden" width="440">
+  <img src="docs/screenshot-settings.png" alt="Settings panel: opacity, font, cursor, default shell, sidebars and full-path prompt" width="440">
+</p>
+<p align="center">
+  &nbsp;
+  <img src="docs/screenshot-minimal.png" alt="Minimal mode with both sidebars hidden" width="440">
 </p>
 
 > The app's UI is in Portuguese (Brazil): *Ajustes* = Settings, *Pastas* = Folders, *Locais* = Places, *Histórico* = History.
@@ -82,7 +90,9 @@
 | Next / previous tab | ⇧⌘] / ⇧⌘[ or ⌃Tab | Ctrl+Tab / Ctrl+Shift+Tab |
 | Go to tab 1…9 | ⌘1…⌘9 | Ctrl+Alt+1…9 |
 | Rename tab | ⇧⌘R or double-click | Ctrl+Shift+R or double-click |
-| Sidebar (folders and history) | ⌃⌘S | Ctrl+Shift+B |
+| Left sidebar (folders and history) | ⌃⌘S | Ctrl+Shift+B |
+| Right sidebar (Git) | ⌃⌘G | Ctrl+Shift+G |
+| Commit (in the message box) | ⌘↵ (⇧⌘↵ commits and pushes) | Ctrl+Enter (Ctrl+Shift+Enter commits and pushes) |
 | Copy / paste | ⌘C / ⌘V | Ctrl+Shift+C (or Ctrl+C with a selection) / Ctrl+V |
 | Interrupt the running program | Ctrl+C, or ⌘C with nothing selected | Ctrl+C |
 | Clear | ⌘K | — |
@@ -113,6 +123,7 @@ Ronic-JustTerminal/
 │   ├── style.css            Glass look, dark theme
 │   ├── app.js               Tabs, xterm.js, shortcuts, command history, bridge to the native app
 │   ├── sidebar.js           Folder tree, Places, path bar, history list
+│   ├── git.js               Git sidebar: status, changes, diff, commit, branches
 │   └── vendor/              xterm.js 6 + addons (WebGL, fit, links, unicode), no CDN
 ├── macos/                   Native macOS app (Swift, AppKit + WKWebView)
 │   ├── Package.swift
@@ -172,9 +183,11 @@ On Windows, for development: `cd windows\RonicJustTerminal && dotnet run`. Detai
 1. Open several tabs (⌘T / Ctrl+Shift+T), rename one with a double-click and drag it to reorder.
 2. Run `cd ~/Downloads`: the sidebar tree and the path bar should follow. Click another folder in the sidebar: the `cd` shows up in the terminal.
 3. Run a few commands in two different tabs and check that **History › This tab** only shows that tab's commands. Try **Copy** and **Insert**.
-4. In **Settings**, lower the opacity to ~60%, quit the app (⌘Q) and open it again: the opacity must be the same.
-5. Close the window (red button / X): the shells keep running. Reopen it from the menu bar or tray icon.
-6. Run `yes` or `cat` a big file: the window stays responsive, and Ctrl+C stops it immediately.
+4. `cd` into a Git repository: the Git sidebar shows the branch and the changed files. Click a file to see its diff, stage it with **+**, write a message and press **Commit**: the `git commit` shows up in the terminal.
+5. Run something with a long output, type a word in the search field at the top and move between the matches with Enter / Shift+Enter.
+6. In **Settings**, lower the opacity to ~60%, quit the app (⌘Q) and open it again: the opacity must be the same.
+7. Close the window (red button / X): the shells keep running. Reopen it from the menu bar or tray icon.
+8. Run `yes` or `cat` a big file: the window stays responsive, and Ctrl+C stops it immediately.
 
 ## Publishing a release
 

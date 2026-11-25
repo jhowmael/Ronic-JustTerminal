@@ -34,6 +34,11 @@ enum SelfTest {
               treeRows: document.querySelectorAll('#sb-folders .node').length,
               history: [...document.querySelectorAll('.history li code')].slice(0, 5).map(c => c.textContent),
               focus: (document.activeElement && (document.activeElement.className || document.activeElement.tagName)) || null,
+              git: JT.git(),
+              gitHead: document.querySelector('#git-head').innerText.replace(/\\n+/g, ' | '),
+              search: JT.search(),
+              overflowPx: (() => { const p = document.querySelector('.pane.active'); const sc = p.querySelector('.xterm-screen').getBoundingClientRect();
+                const sb = p.querySelector('.xterm-scrollable-element > .scrollbar.vertical'); return Math.round(sc.right - (sb ? sb.getBoundingClientRect().left : p.getBoundingClientRect().right)); })(),
               tabs: JT.dump().map(t => ({ title: t.title, active: t.active, tail: t.text.split('\\n').slice(-4) }))
             })
             """
@@ -72,6 +77,23 @@ enum SelfTest {
             if env["JT_CTRLC_KEYBOARD"] == "1" { pressCtrlC(in: webView) } else { js(webView, "JT.type('\\u0003')") }
         }
         main.asyncAfter(deadline: .now() + 7.5 + wait + 3) { js(webView, "JT.type('echo CTRL_C_OK\\r')") }
+        if env["JT_GIT_ACTIONS"] == "1" {
+            // Git sidebar end to end: stage the first changed file (background), then commit
+            // (typed into the terminal).
+            let start = 7.5 + wait - 2.5
+            main.asyncAfter(deadline: .now() + start) {
+                js(webView, "document.querySelector('.file-row[data-group=\"unstaged\"] button[data-act=\"stage\"]').click()")
+            }
+            main.asyncAfter(deadline: .now() + start + 1.2) {
+                js(webView, "document.querySelector('#git-message').value = 'test: commit from the Git sidebar'; document.querySelector('#git-commit').click()")
+            }
+        }
+        if let query = env["JT_SEARCH"] {
+            // Types into the terminal search field, like the user would.
+            main.asyncAfter(deadline: .now() + 7.5 + wait - 0.6) {
+                js(webView, "(() => { const i = document.querySelector('#search-input'); i.value = \(jsString(query)); i.dispatchEvent(new Event('input')); })()")
+            }
+        }
         main.asyncAfter(deadline: .now() + 7.5 + wait + 4) { save("selftest-4.json") }
         main.asyncAfter(deadline: .now() + 7.5 + wait + 4.5) { finish(bridge) }
     }
@@ -95,7 +117,7 @@ enum SelfTest {
             }
         }
 
-        at(0) { webView.window?.setContentSize(NSSize(width: 1180, height: 700)); webView.window?.center() }
+        at(0) { webView.window?.setContentSize(NSSize(width: 1440, height: 820)); webView.window?.center() }
         type("ls")
         type("make help")
         type("ls shared-web")
@@ -103,12 +125,16 @@ enum SelfTest {
         type("cd macos/Sources/RonicJustTerminal")
         type("ls -1")
         at(0.5) { bridge.command("selectTab", arg: 1) }
+        at(0.3) { js(webView, "(() => { const i = document.querySelector('#search-input'); i.value = 'make'; i.dispatchEvent(new Event('input')); })()") }
         shot("shot-main")
+        at(0.3) { js(webView, "document.querySelector('.file-row[data-group=\"unstaged\"] .fname').click()") }
+        shot("shot-diff")
+        at(0.3) { js(webView, "document.querySelector('#diff-close').click(); (() => { const i = document.querySelector('#search-input'); i.value = ''; i.dispatchEvent(new Event('input')); })()") }
         at(0.3) { bridge.command("settings") }
         shot("shot-settings")
-        at(0.3) { bridge.command("settings"); bridge.command("selectTab", arg: 2); bridge.command("toggleSidebar") }
+        at(0.3) { bridge.command("settings"); bridge.command("selectTab", arg: 2); bridge.command("toggleSidebar"); bridge.command("toggleGit") }
         shot("shot-minimal")
-        at(0.3) { bridge.command("toggleSidebar") }
+        at(0.3) { bridge.command("toggleSidebar"); bridge.command("toggleGit") }
         at(1.0) { finish(bridge) }
     }
 

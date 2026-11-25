@@ -47,6 +47,7 @@ enum MainMenu {
 
         // Editar
         main.addItem(submenu("Editar", [
+            item("Recortar", #selector(AppDelegate.cutText(_:)), "x"),
             item("Copiar", #selector(AppDelegate.copyText(_:)), "c"),
             item("Colar", #selector(AppDelegate.pasteText(_:)), "v"),
             item("Selecionar Tudo", #selector(AppDelegate.selectAllText(_:)), "a"),
@@ -62,6 +63,7 @@ enum MainMenu {
         fullScreen.keyEquivalentModifierMask = [.command, .control]
         main.addItem(submenu("Visualizar", [
             item("Mostrar/Ocultar Barra Lateral", #selector(AppDelegate.toggleSidebar(_:)), "s", [.command, .control]),
+            item("Mostrar/Ocultar Git", #selector(AppDelegate.toggleGit(_:)), "g", [.command, .control]),
             .separator(),
             item("Aumentar Fonte", #selector(AppDelegate.zoomIn(_:)), "="),
             zoomInAlt,

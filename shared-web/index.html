@@ -23,6 +23,22 @@
         </button>
       </div>
       <div id="drag-spacer"></div>
+      <div id="term-search" class="search-box" role="search">
+        <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3.25 3.25"/></svg>
+        <input id="search-input" type="search" placeholder="Buscar no terminal" spellcheck="false" autocomplete="off" aria-label="Buscar no terminal">
+        <span id="search-count" class="search-count" aria-live="polite"></span>
+        <button id="search-case" class="search-opt" title="Diferenciar maiúsculas e minúsculas" aria-pressed="false">Aa</button>
+        <button id="search-regex" class="search-opt" title="Expressão regular" aria-pressed="false">.*</button>
+        <button id="search-prev" class="icon-btn tiny" title="Anterior (Shift+Enter)" aria-label="Anterior">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 9.5 8 6l3.5 3.5"/></svg>
+        </button>
+        <button id="search-next" class="icon-btn tiny" title="Próxima (Enter)" aria-label="Próxima">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
+        </button>
+      </div>
+      <button id="git-btn" class="icon-btn" title="Mostrar/ocultar Git" aria-label="Git">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.75" r="1.5"/><circle cx="4.5" cy="12.25" r="1.5"/><circle cx="11.5" cy="5.75" r="1.5"/><path d="M4.5 5.25v5.5M11.5 7.25c0 2.5-3 2.5-5.6 4"/></svg>
+      </button>
       <button id="settings-btn" class="icon-btn" title="Ajustes" aria-label="Ajustes">
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6"/>
@@ -76,7 +92,61 @@
         </section>
       </aside>
       <div id="sb-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar"></div>
-      <main id="panes"></main>
+      <main id="panes">
+        <section id="diff-view" class="glass-panel" hidden aria-label="Diferenças">
+          <header>
+            <span class="diff-title"></span>
+            <button id="diff-close" class="icon-btn small" title="Fechar (Esc)" aria-label="Fechar">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg>
+            </button>
+          </header>
+          <pre class="diff-body"></pre>
+        </section>
+      </main>
+      <div id="git-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar"></div>
+      <aside id="gitbar" aria-label="Git">
+        <div id="git-head" class="git-head"></div>
+        <div id="git-banner" class="git-banner" hidden></div>
+        <div id="git-empty" class="git-empty" hidden></div>
+
+        <section class="sb-section grow" id="git-changes">
+          <h3>
+            <button class="sb-toggle">Alterações <span class="count" id="git-changes-count"></span></button>
+            <span class="sb-tools">
+              <button id="git-refresh" class="icon-btn tiny" title="Atualizar" aria-label="Atualizar">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.75v2.5h-2.5"/></svg>
+              </button>
+            </span>
+          </h3>
+          <div class="sb-body git-list"></div>
+          <div class="git-commit">
+            <textarea id="git-message" rows="2" spellcheck="true" placeholder="Mensagem do commit (⌘↵ / Ctrl+↵ para commitar)"></textarea>
+            <div class="git-commit-actions">
+              <button id="git-commit" class="git-primary">Commit</button>
+              <button id="git-commit-push" class="git-secondary">Commit + Push</button>
+            </div>
+            <div class="git-hint" id="git-commit-hint"></div>
+          </div>
+        </section>
+
+        <section class="sb-section grow" id="git-branches">
+          <h3>
+            <button class="sb-toggle">Branches <span class="count" id="git-branches-count"></span></button>
+            <span class="sb-tools">
+              <button id="git-new-branch" class="icon-btn tiny" title="Nova branch a partir da atual" aria-label="Nova branch">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.25v9.5M3.25 8h9.5"/></svg>
+              </button>
+              <button id="git-cleanup" class="icon-btn tiny" title="Limpar branches já mergeadas" aria-label="Limpar branches mergeadas">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.75h5.8l.6-8.75"/></svg>
+              </button>
+            </span>
+          </h3>
+          <div class="sb-body git-branches-body">
+            <input id="git-branch-filter" type="search" placeholder="Filtrar branches…" spellcheck="false" autocomplete="off">
+            <div class="git-branch-list"></div>
+          </div>
+        </section>
+      </aside>
     </div>
   </div>
 
@@ -119,7 +189,9 @@
       <select id="default-profile"></select>
     </label>
 
-    <label class="toggle"><input id="show-sidebar" type="checkbox"><span>Barra lateral (pastas e histórico)</span></label>
+    <label class="toggle"><input id="show-sidebar" type="checkbox"><span>Barra lateral esquerda (pastas e histórico)</span></label>
+    <label class="toggle"><input id="show-git" type="checkbox"><span>Barra lateral direita (Git)</span></label>
+    <label class="toggle"><input id="git-auto-fetch" type="checkbox"><span>Git: buscar novidades do remoto a cada 5 min</span></label>
     <label class="toggle mac-only"><input id="full-path-prompt" type="checkbox"><span>Prompt com o caminho completo (novas abas)</span></label>
     <label class="toggle mac-only"><input id="cmd-c-interrupts" type="checkbox"><span>⌘C sem seleção para o programa (igual Ctrl+C)</span></label>
     <label class="toggle"><input id="cursor-blink" type="checkbox"><span>Cursor piscando</span></label>
@@ -136,7 +208,9 @@
   <script src="vendor/addon-webgl.js"></script>
   <script src="vendor/addon-web-links.js"></script>
   <script src="vendor/addon-unicode11.js"></script>
+  <script src="vendor/addon-search.js"></script>
   <script src="sidebar.js"></script>
+  <script src="git.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

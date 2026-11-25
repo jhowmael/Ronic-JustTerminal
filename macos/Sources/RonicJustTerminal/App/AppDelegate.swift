@@ -67,6 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func selectAllText(_ sender: Any?) { bridge.command("selectAll") }
     @objc func clearBuffer(_ sender: Any?) { bridge.command("clear") }
     @objc func toggleSidebar(_ sender: Any?) { bridge.command("toggleSidebar") }
+    @objc func toggleGit(_ sender: Any?) { bridge.command("toggleGit") }
+    @objc func cutText(_ sender: Any?) { bridge.command("cut") }
     @objc func zoomIn(_ sender: Any?) { bridge.command("zoomIn") }
     @objc func zoomOut(_ sender: Any?) { bridge.command("zoomOut") }
     @objc func zoomReset(_ sender: Any?) { bridge.command("zoomReset") }

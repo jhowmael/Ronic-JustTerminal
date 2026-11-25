@@ -29,7 +29,7 @@ internal sealed class MainForm : Form
         MinimumSize = new Size(480, 280);
         StartPosition = FormStartPosition.Manual;
         var screen = Screen.PrimaryScreen!.WorkingArea;
-        var bounds = SettingsStore.WindowBounds ?? new Rectangle(0, 0, 960, 600);
+        var bounds = SettingsStore.WindowBounds ?? new Rectangle(0, 0, 1280, 760);
         if (!Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(bounds)) || SettingsStore.WindowBounds is null)
             bounds = new Rectangle(screen.X + (screen.Width - bounds.Width) / 2, screen.Y + (screen.Height - bounds.Height) / 2, bounds.Width, bounds.Height);
         Bounds = bounds;

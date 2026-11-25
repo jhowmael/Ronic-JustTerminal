@@ -87,9 +87,21 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
             // Folder click in the sidebar: types the "cd" only if the shell is at its prompt.
             guard let text = msg["text"] as? String, let session = sessions[id] else { return }
             if session.isBusy {
-                send(["t": "toast", "text": "Há um programa rodando nesta aba. Saia dele para navegar pelas pastas."])
+                if msg["fallback"] as? Bool == true {
+                    // The UI runs it in a new tab instead (Git sidebar actions).
+                    send(["t": "runRejected", "id": id, "cmd": msg["cmd"] ?? "", "cwd": msg["cwd"] ?? ""])
+                } else {
+                    send(["t": "toast", "text": "Há um programa rodando nesta aba. Saia dele para navegar pelas pastas."])
+                }
             } else {
                 session.write(Data(text.utf8))
+            }
+
+        case "git":
+            let reqId = (msg["reqId"] as? NSNumber)?.intValue ?? 0
+            GitRunner.run(msg["args"] as? [String] ?? [], cwd: msg["cwd"] as? String ?? NSHomeDirectory(),
+                          write: msg["write"] as? Bool == true, background: msg["background"] as? Bool == true) { [weak self] r in
+                self?.send(["t": "gitResult", "reqId": reqId, "code": Int(r.code), "out": r.out, "err": r.err])
             }
 
         case "listDir":

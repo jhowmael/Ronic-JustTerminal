@@ -94,6 +94,14 @@ internal sealed class TerminalBridge
                 if (_sessions.TryGetValue(id, out var runner)) runner.Write(Encoding.UTF8.GetBytes(Str(msg, "text")));
                 break;
 
+            case "git":
+                RunGit(Int(msg, "reqId"), id, Str(msg, "cwd"),
+                    msg.TryGetProperty("args", out var gitArgs) && gitArgs.ValueKind == JsonValueKind.Array
+                        ? gitArgs.EnumerateArray().Select(a => a.GetString() ?? "").ToList() : new List<string>(),
+                    msg.TryGetProperty("write", out var w) && w.ValueKind == JsonValueKind.True,
+                    msg.TryGetProperty("background", out var bg) && bg.ValueKind == JsonValueKind.True);
+                break;
+
             case "listDir":
                 ListDirectory(Int(msg, "reqId"), id, Str(msg, "path"), Str(msg, "host"));
                 break;
@@ -251,6 +259,92 @@ internal sealed class TerminalBridge
                 result = new { t = "dirList", reqId, path, entries = Array.Empty<object>(), error = "não foi possível ler esta pasta" };
             }
             _ui.BeginInvoke(() => Send(result));
+        });
+    }
+
+    // ------------------------------------------------------------- git (right sidebar)
+
+    private static readonly Lazy<string?> GitExe = new(() =>
+    {
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(dir.Trim(), "git.exe");
+                if (File.Exists(candidate)) return candidate;
+            }
+            catch (ArgumentException) { /* invalid PATH entry */ }
+        }
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var bundled = Path.Combine(programFiles, "Git", "cmd", "git.exe");
+        return File.Exists(bundled) ? bundled : null;
+    });
+
+    /// Runs git in the background for the Git sidebar. Never prompts: no console, no credential UI
+    /// (GIT_TERMINAL_PROMPT=0, GCM_INTERACTIVE=never). WSL tabs use the Linux git through wsl.exe.
+    private void RunGit(int reqId, int tabId, string cwd, List<string> args, bool write, bool background)
+    {
+        var profile = _tabProfiles.GetValueOrDefault(tabId) ?? _profiles[0];
+        Task.Run(() =>
+        {
+            int code;
+            string stdout = "", stderr = "";
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8,
+                };
+                var gitArgs = new List<string> { "-c", "color.ui=false", "-c", "core.quotepath=false" };
+                gitArgs.AddRange(args);
+                if (profile.Flavor == "wsl")
+                {
+                    psi.FileName = profile.Exe;   // wsl.exe
+                    foreach (var a in new[] { "-e", "git", "-C", string.IsNullOrEmpty(cwd) ? "~" : cwd }) psi.ArgumentList.Add(a);
+                }
+                else
+                {
+                    var exe = GitExe.Value;
+                    if (exe is null) { Reply(127, "", "git not found"); return; }
+                    psi.FileName = exe;
+                    var dir = string.IsNullOrEmpty(cwd) ? "" : profile.ToWindowsPath(cwd, "");
+                    if (!Directory.Exists(dir)) { Reply(128, "", $"fatal: not a directory: {cwd}"); return; }
+                    psi.WorkingDirectory = dir;
+                }
+                foreach (var a in gitArgs) psi.ArgumentList.Add(a);
+                psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
+                psi.Environment["GCM_INTERACTIVE"] = "never";
+                if (!write) psi.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+
+                using var p = System.Diagnostics.Process.Start(psi)!;
+                p.StandardInput.Close();
+                var outTask = p.StandardOutput.ReadToEndAsync();
+                var errTask = p.StandardError.ReadToEndAsync();
+                if (!p.WaitForExit(background ? 90_000 : 20_000))
+                {
+                    try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                }
+                p.WaitForExit();
+                stdout = outTask.Result;
+                stderr = errTask.Result;
+                code = p.ExitCode;
+                if (stdout.Length > 2 * 1024 * 1024) stdout = stdout[..(2 * 1024 * 1024)];
+            }
+            catch (Exception ex)
+            {
+                code = 127;
+                stderr = ex.Message;
+            }
+            Reply(code, stdout, stderr);
+
+            void Reply(int c, string o, string e) =>
+                _ui.BeginInvoke(() => Send(new { t = "gitResult", reqId, code = c, @out = o, err = e }));
         });
     }
 

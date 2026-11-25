@@ -25,7 +25,7 @@ screenshots:
 	@echo '{"defaultProfile":"login","fontSize":13}' > build/shots/data/RonicJustTerminal/settings.json
 	JT_SHOTS=$(CURDIR)/build/shots JT_DATA_DIR=$(CURDIR)/build/shots/data JT_DEMO_HOME=$(CURDIR) JT_RENDERER=dom \
 		swift run --package-path macos RonicJustTerminal
-	for s in main settings minimal; do \
+	for s in main diff settings minimal; do \
 		swift scripts/frame-screenshot.swift build/shots/shot-$$s.png docs/screenshot-$$s.png; done
 
 app:

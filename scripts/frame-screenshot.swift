@@ -12,7 +12,7 @@ guard args.count == 3, let src = NSImage(contentsOfFile: args[1]),
     print("usage: swift scripts/frame-screenshot.swift input.png output.png"); exit(1)
 }
 let w = CGFloat(cg.width), h = CGFloat(cg.height)
-let scale = w / 1180                     // 2x captures → scale 2
+let scale: CGFloat = 2                   // captures are taken at 2x
 let pad = 44 * scale
 let radius = 12 * scale
 let size = CGSize(width: w + pad * 2, height: h + pad * 2)

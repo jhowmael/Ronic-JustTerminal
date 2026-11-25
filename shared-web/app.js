@@ -43,6 +43,11 @@
     historyScope: 'tab',   // sidebar history: 'tab' (this tab) or 'all' (every tab)
     fullPathPrompt: true,  // macOS: the prompt shows the full path, like on Windows
     cmdCInterrupts: true,  // macOS: ⌘C with nothing selected interrupts, like Ctrl+C (Windows Terminal style)
+    showGit: true,         // right sidebar with Git
+    gitWidth: 300,
+    gitAutoFetch: true,    // background "git fetch" every 5 minutes while the Git sidebar is open
+    searchCase: false,     // terminal search: case sensitive
+    searchRegex: false,    // terminal search: regular expression
   };
 
   const HISTORY_MAX = 300;
@@ -162,6 +167,8 @@
     }));
     const unicode = new Unicode11Addon.Unicode11Addon();
     term.loadAddon(unicode);
+    const search = new SearchAddon.SearchAddon({ highlightLimit: 2000 });
+    term.loadAddon(search);
     term.unicode.activeVersion = '11';
     term.open(el);
 
@@ -176,6 +183,9 @@
       typedSinceMark: false,
       markTimer: 0,
       integration: false, // the shell marks its prompt with OSC 133 (more accurate)
+      running: false,     // a command is running (known only with shell integration)
+      pendingRun: null,   // command to type as soon as the first prompt shows up
+      search,
       webgl: null,
       activity: false,
       exited: false,
@@ -210,10 +220,13 @@
     });
     term.parser.registerOscHandler(133, (data) => {
       tab.integration = true;
+      if (data[0] === 'A' || data[0] === 'B') tab.running = false;
       if (data[0] === 'B') markPrompt(tab);
       return true;
     });
+    search.onDidChangeResults((r) => { if (tab.id === state.activeId) showSearchCount(r); });
     term.onSelectionChange(() => {
+      if (searchSelecting) return;   // the search highlights a match by selecting it
       if (state.settings.copyOnSelect && term.hasSelection()) host.post({ t: 'copy', text: term.getSelection() });
     });
     el.addEventListener('contextmenu', (ev) => { ev.preventDefault(); openContextMenu(ev.clientX, ev.clientY); });
@@ -237,6 +250,9 @@
     tab.term.focus();
     renderTabs();
     sidebar.syncToTab(tab);
+    gitPanel.sync();
+    if (prev && prev !== tab) prev.search.clearDecorations();
+    if (searchInput.value) runSearch('next', true);
   }
 
   function closeTab(id) {
@@ -471,12 +487,13 @@
     tab.cwd = path;
     tab.cwdHost = hostName || '';
     renderTabs();
-    if (tab.id === state.activeId) sidebar.syncToTab(tab);
+    if (tab.id === state.activeId) { sidebar.syncToTab(tab); gitPanel.sync(); }
   }
 
   // Without shell integration, the end of the prompt is inferred: after Enter (or ^C), the last
   // output before the terminal goes quiet is the new prompt. Typing (echo) doesn't move the mark.
   function trackInput(tab, data) {
+    if (data.includes('\r')) tab.running = true;
     if (data === '\r') {
       captureCommand(tab);
       tab.typedSinceMark = false;
@@ -504,7 +521,14 @@
     const b = tab.term.buffer.active;
     if (b.type !== 'normal') return;
     tab.promptMark = { y: b.baseY + b.cursorY, x: b.cursorX };
+    tab.running = false;
+    if (tab.pendingRun) {
+      const text = tab.pendingRun;
+      tab.pendingRun = null;
+      host.post({ t: 'run', id: tab.id, text });
+    }
     sidebar.onPrompt(tab);
+    gitPanel.onPrompt(tab);
   }
 
   function captureCommand(tab, pending = '') {
@@ -605,6 +629,9 @@
     fitTab(activeTab());
     syncSettingsForm();
     sidebar.applySettings();
+    gitPanel.applySettings();
+    $('#search-case').setAttribute('aria-pressed', String(s.searchCase));
+    $('#search-regex').setAttribute('aria-pressed', String(s.searchRegex));
     if (save) persistSettings();
   }
 
@@ -629,6 +656,8 @@
     $('#font-family').placeholder = FONT_STACK[state.platform].split(',')[0].replace(/"/g, '');
     $('#cursor-blink').checked = s.cursorBlink;
     $('#show-sidebar').checked = s.showSidebar;
+    $('#show-git').checked = s.showGit;
+    $('#git-auto-fetch').checked = s.gitAutoFetch;
     $('#full-path-prompt').checked = s.fullPathPrompt;
     $('#cmd-c-interrupts').checked = s.cmdCInterrupts;
     $('#copy-on-select').checked = s.copyOnSelect;
@@ -644,6 +673,9 @@
   $('#font-family').addEventListener('input', debounce((e) => setSetting('fontFamily', e.target.value), 400));
   $('#cursor-blink').addEventListener('change', (e) => setSetting('cursorBlink', e.target.checked));
   $('#show-sidebar').addEventListener('change', (e) => setSetting('showSidebar', e.target.checked));
+  $('#show-git').addEventListener('change', (e) => setSetting('showGit', e.target.checked));
+  $('#git-auto-fetch').addEventListener('change', (e) => setSetting('gitAutoFetch', e.target.checked));
+  $('#git-btn').addEventListener('click', () => command('toggleGit'));
   $('#full-path-prompt').addEventListener('change', (e) => setSetting('fullPathPrompt', e.target.checked));
   $('#cmd-c-interrupts').addEventListener('change', (e) => setSetting('cmdCInterrupts', e.target.checked));
   $('#sidebar-btn').addEventListener('click', () => command('toggleSidebar'));
@@ -723,7 +755,8 @@
     // Clicking the sidebar, the menus or the toolbar buttons must not steal the keyboard from
     // the terminal (otherwise Ctrl+C and every other key would go nowhere). Text fields keep
     // their normal focus behavior.
-    if (ev.target.closest('#sidebar, #menu, .tab-actions, #sidebar-btn') && !isTextField(ev.target)) {
+    if (ev.target.closest('#sidebar, #gitbar, #menu, .tab-actions, #sidebar-btn, #git-btn, #diff-view header, .search-box button')
+        && !isTextField(ev.target)) {
       ev.preventDefault();
     }
   });
@@ -731,12 +764,13 @@
   // When the window becomes active again, the keyboard goes back to the terminal.
   window.addEventListener('focus', () => {
     if (!isTextField(document.activeElement) && settingsEl.hidden) focusTerminal();
+    gitPanel.onFocus();
   });
 
   // A UI text field (rename tab, font) has focus: copy/paste go to it, not to the shell.
   function focusedField() {
     const el = document.activeElement;
-    return el && el.matches && el.matches('input[type="text"], input[type="search"], input.rename') ? el : null;
+    return el && el.matches && el.matches('input[type="text"], input[type="search"], input.rename, textarea:not(.xterm-helper-textarea)') ? el : null;
   }
 
   // macOS: the user physically pressed Ctrl+letter, but a keyboard remapper (Ronic MacToWindows…)
@@ -746,7 +780,7 @@
   function physicalCtrlKey(key, shift) {
     const tab = activeTab();
     if (focusedField()) {
-      if (key === 'c' || key === 'v' || key === 'a') command({ c: 'copy', v: 'paste', a: 'selectAll' }[key]);
+      if ('cvax'.includes(key)) command({ c: 'copy', v: 'paste', a: 'selectAll', x: 'cut' }[key]);
       return;
     }
     if (!tab) return;
@@ -829,6 +863,18 @@
     switch (name) {
       case 'newTab': return newTab(arg);
       case 'toggleSidebar': return setSetting('showSidebar', !state.settings.showSidebar);
+      case 'toggleGit': return setSetting('showGit', !state.settings.showGit);
+      case 'cut': {
+        const field = focusedField();
+        if (!field) return command('copy');
+        const text = field.value.slice(field.selectionStart, field.selectionEnd);
+        if (text) {
+          host.post({ t: 'copy', text });
+          field.setRangeText('', field.selectionStart, field.selectionEnd, 'end');
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        return;
+      }
       case 'ctrlKey': return physicalCtrlKey(arg.key, arg.shift);
       case 'closeTab': return tab && closeTab(tab.id);
       case 'nextTab': return cycleTab(1);
@@ -868,6 +914,7 @@
     [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyW', () => command('closeTab')],
     [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyR', () => command('renameTab')],
     [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyB', () => command('toggleSidebar')],
+    [(e) => e.ctrlKey && e.shiftKey && e.code === 'KeyG', () => command('toggleGit')],
     [(e) => e.ctrlKey && !e.shiftKey && e.key === 'Tab', () => command('nextTab')],
     [(e) => e.ctrlKey && e.shiftKey && e.key === 'Tab', () => command('prevTab')],
     [(e) => e.ctrlKey && e.key === 'PageDown', () => command('nextTab')],
@@ -890,6 +937,7 @@
     if (ev.key === 'Escape' && (!menuEl.hidden || !settingsEl.hidden)) {
       closeMenu(); closeSettings(); ev.preventDefault(); return;
     }
+    if (ev.key === 'Escape' && !isTextField(ev.target) && gitPanel.closeDiff()) { ev.preventDefault(); return; }
     if (isTextField(ev.target)) return;
     if (state.platform === 'mac') {
       if (ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); return; }
@@ -954,7 +1002,12 @@
         break;
       case 'data': onData(msg.id, msg.b64); break;
       case 'cwd': setCwd(tabById(msg.id), msg.path, msg.host || ''); break;
-      case 'dirList': sidebar.onDirList(msg); break;
+      case 'dirList':
+        if (pendingRequests.has(msg.reqId)) resolveRequest(msg);
+        else sidebar.onDirList(msg);
+        break;
+      case 'gitResult': resolveRequest(msg); break;
+      case 'runRejected': runInHelperTab(tabById(msg.id) || activeTab(), msg.cmd, msg.cwd); break;
       case 'toast': toast(msg.text); break;
       case 'exit': onExit(msg.id, msg.code); break;
       case 'spawnError': onSpawnError(msg.id, msg.message); break;
@@ -996,7 +1049,115 @@
   // Types as if it were the user (native app self-test).
   function type(text) { const tab = activeTab(); if (tab) tab.term.input(text, true); }
 
-  window.JT = { recv, data: onData, dump, type };
+  // ------------------------------------------------------------ terminal search
+  // A dedicated field in the tab bar (not Ctrl+F/⌘F, which belong to the shell): highlights every
+  // match in the active tab, shows "current/total" and moves with Enter / Shift+Enter or ↑ ↓.
+  const searchBox = $('#term-search');
+  const searchInput = $('#search-input');
+  const searchCount = $('#search-count');
+  let searchSelecting = false;
+  const SEARCH_DECORATIONS = {
+    matchBackground: '#7fb4ff40', matchBorder: '#7fb4ff90', matchOverviewRuler: '#7fb4ff',
+    activeMatchBackground: '#3cf59a66', activeMatchBorder: '#3cf59a', activeMatchColorOverviewRuler: '#3cf59a',
+  };
+
+  function runSearch(direction = 'next', incremental = false) {
+    const tab = activeTab();
+    const query = searchInput.value;
+    searchBox.classList.toggle('has-query', !!query);
+    if (!tab) return;
+    if (!query) {
+      tab.search.clearDecorations();
+      tab.term.clearSelection();
+      showSearchCount(null);
+      return;
+    }
+    const options = { caseSensitive: state.settings.searchCase, regex: state.settings.searchRegex, incremental, decorations: SEARCH_DECORATIONS };
+    let found = false;
+    searchSelecting = true;
+    try {
+      found = direction === 'prev' ? tab.search.findPrevious(query, options) : tab.search.findNext(query, options);
+    } catch (_) {
+      found = false;   // invalid regular expression while typing
+    } finally {
+      searchSelecting = false;
+    }
+    if (!found) showSearchCount({ resultIndex: -1, resultCount: 0 });
+  }
+
+  function showSearchCount(r) {
+    if (!r || !searchInput.value) {
+      searchCount.textContent = '';
+      searchBox.classList.remove('no-match');
+      return;
+    }
+    if (r.resultCount === -1) searchCount.textContent = '2000+';
+    else if (r.resultCount === 0) searchCount.textContent = 'nenhum';
+    else searchCount.textContent = `${r.resultIndex + 1}/${r.resultCount}`;
+    searchBox.classList.toggle('no-match', r.resultCount === 0);
+  }
+
+  const searchAsYouType = debounce(() => runSearch('next', true), 110);
+  searchInput.addEventListener('input', searchAsYouType);
+  searchInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); runSearch(ev.shiftKey ? 'prev' : 'next'); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); searchInput.value = ''; runSearch(); focusTerminal(); }
+  });
+  $('#search-next').addEventListener('click', () => runSearch('next'));
+  $('#search-prev').addEventListener('click', () => runSearch('prev'));
+  $('#search-case').addEventListener('click', () => { setSetting('searchCase', !state.settings.searchCase); runSearch('next', true); });
+  $('#search-regex').addEventListener('click', () => { setSetting('searchRegex', !state.settings.searchRegex); runSearch('next', true); });
+
+  // -------------------------------------------- requests to the native app (git, folders)
+  const pendingRequests = new Map();
+  let nextRequestId = 1000000;   // separate range from the sidebar's own listDir requests
+
+  function request(msg, timeoutMs = 60000) {
+    return new Promise((resolve) => {
+      const reqId = nextRequestId++;
+      pendingRequests.set(reqId, resolve);
+      host.post({ ...msg, reqId });
+      setTimeout(() => {
+        if (pendingRequests.delete(reqId)) resolve({ code: -1, out: '', err: 'sem resposta do app', entries: [] });
+      }, timeoutMs);
+    });
+  }
+
+  function resolveRequest(msg) {
+    const resolve = pendingRequests.get(msg.reqId);
+    if (!resolve) return;
+    pendingRequests.delete(msg.reqId);
+    resolve(msg);
+  }
+
+  // --------------------------------------- typing commands for the sidebars (cd, git…)
+  /** The command line as typed into the shell: the prefix clears whatever is on the line. */
+  function lineCommand(tab, cmd) {
+    const kind = profileOf(tab).kind;
+    return `${kind === 'powershell' || kind === 'cmd' ? '\x1b' : '\x05\x15'}${cmd}\r`;
+  }
+
+  function tabBusy(tab) {
+    return tab.term.buffer.active.type === 'alternate' || (tab.integration && tab.running);
+  }
+
+  /** Types `cmd` into the active tab; if a program is running there, uses a new tab in `cwd`. */
+  function runInTerminal(cmd, cwd) {
+    const tab = activeTab();
+    if (!tab) return;
+    if (tab.exited || tabBusy(tab)) return runInHelperTab(tab, cmd, cwd);
+    host.post({ t: 'run', id: tab.id, text: lineCommand(tab, cmd), fallback: true, cmd, cwd: cwd || '' });
+    tab.term.focus();
+  }
+
+  function runInHelperTab(tab, cmd, cwd) {
+    if (!tab) return;
+    toast('Esta aba está ocupada: o comando vai rodar numa aba nova');
+    const helper = newTab(tab.profile, cwd || tab.cwd);
+    helper.pendingRun = lineCommand(helper, cmd);
+  }
+
+  window.JT = { recv, data: onData, dump, type, git: () => gitPanel.snapshot(), search: () => searchCount.textContent };
 
   // API for the sidebar (sidebar.js): it never talks to the native app directly.
   const sidebar = window.createSidebar({
@@ -1014,6 +1175,14 @@
       tab.term.focus();
     },
     focusTerminal,
+  });
+
+  // API for the Git sidebar (git.js).
+  const gitPanel = window.createGitPanel({
+    state, activeTab, profileOf, setSetting, openMenu, toast, focusTerminal, runInTerminal,
+    copy: (text) => host.post({ t: 'copy', text }),
+    git: (tab, args, opts = {}) => request({ t: 'git', id: tab.id, args, cwd: opts.cwd || tab.cwd, write: !!opts.write, background: !!opts.background }),
+    listDir: (tab, path) => request({ t: 'listDir', id: tab.id, path, host: tab.cwdHost || '' }),
   });
   if (winHost) winHost.addEventListener('message', (e) => recv(typeof e.data === 'string' ? JSON.parse(e.data) : e.data));
 
@@ -1037,8 +1206,43 @@
     '/Users/demo/development/rpg-manager': [],
   };
 
+  const DEMO_REPO = '/Users/demo/development/Ronic-JustTerminal';
   const Demo = {
     lines: {},
+    // A fake repository, so the Git sidebar can be worked on in the browser.
+    git({ args, cwd }) {
+      const ok = (out) => ({ code: 0, out, err: '' });
+      if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+        return cwd && cwd.startsWith(DEMO_REPO) ? ok(`${DEMO_REPO}\n${DEMO_REPO}/.git\n`) : { code: 128, out: '', err: 'fatal: not a git repository' };
+      }
+      if (args[0] === 'status') {
+        const h = '0123456789abcdef0123456789abcdef01234567';
+        return ok(['# branch.oid ' + h, '# branch.head feature/git-sidebar', '# branch.upstream origin/feature/git-sidebar', '# branch.ab +2 -1',
+          `1 M. N... 100644 100644 100644 ${h} ${h} shared-web/git.js`,
+          `1 .M N... 100644 100644 100644 ${h} ${h} shared-web/app.js`,
+          `1 .M N... 100644 100644 100644 ${h} ${h} shared-web/style.css`,
+          `1 .D N... 100644 100644 000000 ${h} ${h} docs/old-notes.md`,
+          '? docs/git-sidebar.md', ''].join('\0'));
+      }
+      if (args[0] === 'for-each-ref') {
+        const now = Math.floor(Date.now() / 1000);
+        const row = (ref, short, up, track, ago, head, subj) => [ref, short, up, track, now - ago, head, subj].join('\0');
+        return ok([
+          row('refs/heads/feature/git-sidebar', 'feature/git-sidebar', 'origin/feature/git-sidebar', 'ahead 2, behind 1', 180, '*', 'feat: Git sidebar'),
+          row('refs/heads/main', 'main', 'origin/main', '', 2 * 86400, ' ', 'Ronic JustTerminal 0.2.3'),
+          row('refs/heads/fix/ctrl-c', 'fix/ctrl-c', 'origin/fix/ctrl-c', 'gone', 5 * 3600, ' ', 'fix: Ctrl+C'),
+          row('refs/remotes/origin/main', 'origin/main', '', '', 2 * 86400, ' ', 'Ronic JustTerminal 0.2.3'),
+          row('refs/remotes/origin/feature/git-sidebar', 'origin/feature/git-sidebar', '', '', 3600, ' ', 'wip'),
+        ].join('\n'));
+      }
+      if (args[0] === 'rev-list') return ok('1\n');
+      if (args[0] === 'remote') return ok('origin\n');
+      if (args[0] === 'diff') {
+        return { code: 1, out: 'diff --git a/x b/x\nindex 1..2 100644\n--- a/x\n+++ b/x\n@@ -1,4 +1,5 @@\n const a = 1;\n-const b = 2;\n+const b = 3;\n+const c = 4;\n export { a };\n', err: '' };
+      }
+      if (args[0] === 'branch') return ok('fix/ctrl-c\n');
+      return ok('');
+    },
     cwd: {},
     prompt(id) { return `\x1b[1;38;2;127;180;255m${this.cwd[id].replace('/Users/demo', '~')}\x1b[0m $ `; },
     cd(id, arg) {
@@ -1080,8 +1284,13 @@
         case 'run': {
           const m = /cd (?:-- |\/d )?['"]?(.*?)['"]?\r$/.exec(msg.text);
           if (m) out(msg.id, `cd ${m[1]}\r\n${this.cd(msg.id, m[1])}${this.prompt(msg.id)}`);
+          else {
+            const cmd = msg.text.replace(/[\x00-\x1f]/g, '');
+            out(msg.id, `${cmd}\r\ndemo: ${cmd.split(' ').slice(0, 2).join(' ')}: simulado (rode o app nativo)\r\n${this.prompt(msg.id)}`);
+          }
           break;
         }
+        case 'git': send({ t: 'gitResult', reqId: msg.reqId, ...this.git(msg) }); break;
         case 'listDir': {
           const names = DEMO_FS[msg.path];
           const entries = (names || []).map((n) => ({ n, d: !!DEMO_FS[`${msg.path === '/' ? '' : msg.path}/${n}`], h: n.startsWith('.') }))
