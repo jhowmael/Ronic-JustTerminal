@@ -68,7 +68,16 @@ final class PTYSession {
                           userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))])
         }
         if pid == 0 {
-            // Processo filho.
+            // Child process. Start the shell with a clean signal state, like any terminal: signal
+            // dispositions marked "ignored" survive execve, so a SIGINT ignored by whoever launched
+            // the app (a background job, an IDE, a launcher) would make Ctrl+C useless for programs
+            // that honor inherited dispositions (dotnet, Java, Python, …). Only async-signal-safe calls.
+            var noSignals = sigset_t()
+            sigemptyset(&noSignals)
+            sigprocmask(SIG_SETMASK, &noSignals, nil)
+            for signum in 1..<NSIG where signum != SIGKILL && signum != SIGSTOP {
+                signal(signum, SIG_DFL)
+            }
             _ = chdir(cCwd)
             cArgs.withUnsafeBufferPointer { argvPtr in
                 cEnv.withUnsafeBufferPointer { envPtr in

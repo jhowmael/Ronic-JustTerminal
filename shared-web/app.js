@@ -717,6 +717,17 @@
   document.addEventListener('mousedown', (ev) => {
     if (!menuEl.hidden && !menuEl.contains(ev.target)) closeMenu();
     if (!settingsEl.hidden && !settingsEl.contains(ev.target) && !ev.target.closest('#settings-btn')) closeSettings();
+    // Clicking the sidebar, the menus or the toolbar buttons must not steal the keyboard from
+    // the terminal (otherwise Ctrl+C and every other key would go nowhere). Text fields keep
+    // their normal focus behavior.
+    if (ev.target.closest('#sidebar, #menu, .tab-actions, #sidebar-btn') && !isTextField(ev.target)) {
+      ev.preventDefault();
+    }
+  });
+
+  // When the window becomes active again, the keyboard goes back to the terminal.
+  window.addEventListener('focus', () => {
+    if (!isTextField(document.activeElement) && settingsEl.hidden) focusTerminal();
   });
 
   // A UI text field (rename tab, font) has focus: copy/paste go to it, not to the shell.
@@ -725,7 +736,48 @@
     return el && el.matches && el.matches('input[type="text"], input[type="search"], input.rename') ? el : null;
   }
 
-  // ----------------------------------------------------------------- comandos
+  function isTextField(el) {
+    return !!(el && el.matches && el.matches('input, select, textarea:not(.xterm-helper-textarea), [contenteditable="true"]'));
+  }
+
+  function terminalHasFocus() {
+    const el = document.activeElement;
+    return !!(el && el.classList && el.classList.contains('xterm-helper-textarea'));
+  }
+
+  function focusTerminal() {
+    const tab = activeTab();
+    if (tab) tab.term.focus();
+  }
+
+  // A key pressed while the keyboard is not on the terminal (focus left on a button, the page
+  // body…): bring the focus back and deliver the key as terminal input, so nothing is lost.
+  function strayKeyToTerminal(ev) {
+    const tab = activeTab();
+    if (!tab || tab.exited) return false;
+    const appCursor = tab.term.modes.applicationCursorKeysMode;
+    const arrows = { ArrowUp: 'A', ArrowDown: 'B', ArrowRight: 'C', ArrowLeft: 'D' };
+    let data = null;
+    if (ev.ctrlKey && !ev.altKey && !ev.metaKey && /^Key[A-Z]$/.test(ev.code)) {
+      data = String.fromCharCode(ev.code.charCodeAt(3) - 64);          // Ctrl+C → \x03, Ctrl+D → \x04…
+    } else if (ev.ctrlKey && ev.code === 'BracketLeft') {
+      data = '\x1b';
+    } else if (ev.metaKey || ev.ctrlKey) {
+      return false;
+    } else if (arrows[ev.key]) {
+      data = (appCursor ? '\x1bO' : '\x1b[') + arrows[ev.key];
+    } else {
+      data = { Enter: '\r', Backspace: '\x7f', Tab: '\t', Escape: '\x1b', Delete: '\x1b[3~',
+               Home: '\x1b[H', End: '\x1b[F', PageUp: '\x1b[5~', PageDown: '\x1b[6~' }[ev.key]
+        || (ev.key.length === 1 ? (ev.altKey && state.settings.optionAsMeta ? `\x1b${ev.key}` : ev.key) : null);
+    }
+    tab.term.focus();
+    if (data === null) return false;
+    tab.term.input(data, true);
+    return true;
+  }
+
+  // ----------------------------------------------------------------- commands
   // Called by the native menu (macOS), the tray (Windows) or the shortcuts below.
   function command(name, arg) {
     const tab = activeTab();
@@ -791,14 +843,17 @@
     if (ev.key === 'Escape' && (!menuEl.hidden || !settingsEl.hidden)) {
       closeMenu(); closeSettings(); ev.preventDefault(); return;
     }
-    const inForm = ev.target.matches && ev.target.matches('input, select');
-    if (inForm) return;
+    if (isTextField(ev.target)) return;
     if (state.platform === 'mac') {
-      if (ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); }
-      return;
+      if (ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); return; }
+    } else {
+      for (const [match, run] of WIN_KEYS) {
+        if (match(ev)) { ev.preventDefault(); ev.stopPropagation(); run(ev); return; }
+      }
     }
-    for (const [match, run] of WIN_KEYS) {
-      if (match(ev)) { ev.preventDefault(); ev.stopPropagation(); run(ev); return; }
+    if (!terminalHasFocus() && menuEl.hidden && settingsEl.hidden && strayKeyToTerminal(ev)) {
+      ev.preventDefault();
+      ev.stopPropagation();
     }
   }, true);
 
@@ -911,7 +966,7 @@
       host.post({ t: 'run', id: tab.id, text });
       tab.term.focus();
     },
-    focusTerminal: () => { const tab = activeTab(); if (tab) tab.term.focus(); },
+    focusTerminal,
   });
   if (winHost) winHost.addEventListener('message', (e) => recv(typeof e.data === 'string' ? JSON.parse(e.data) : e.data));
 

@@ -16,7 +16,7 @@ mac-dev:
 
 mac-test:
 	@mkdir -p build/selftest/data
-	JT_SELFTEST=$(CURDIR)/build/selftest JT_DATA_DIR=$(CURDIR)/build/selftest/data \
+	JT_SELFTEST=$(CURDIR)/build/selftest JT_DATA_DIR=$(CURDIR)/build/selftest/data JT_CTRLC_KEYBOARD=1 \
 		swift run --package-path macos RonicJustTerminal
 	@cat build/selftest/selftest-*.json
 
