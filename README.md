@@ -84,6 +84,7 @@
 | Rename tab | ⇧⌘R or double-click | Ctrl+Shift+R or double-click |
 | Sidebar (folders and history) | ⌃⌘S | Ctrl+Shift+B |
 | Copy / paste | ⌘C / ⌘V | Ctrl+Shift+C (or Ctrl+C with a selection) / Ctrl+V |
+| Interrupt the running program | Ctrl+C, or ⌘C with nothing selected | Ctrl+C |
 | Clear | ⌘K | — |
 | Bigger / smaller / default font | ⌘= / ⌘- / ⌘0 | Ctrl+= / Ctrl+- / Ctrl+0 |
 | Settings | ⌘, | Ctrl+, |
@@ -101,7 +102,7 @@ Links in the terminal open with ⌘-click (macOS) or Ctrl-click (Windows).
 | Ctrl+Shift+C / V / T / W | Copy / paste / new tab / close tab |
 | Any other Ctrl+letter | Goes to the shell: Ctrl+R (history search), Ctrl+A / E, Ctrl+U / K / W, Ctrl+L, Ctrl+Z… |
 
-A real ⌘C (Command key) still copies.
+The Command key (the Windows key on a PC keyboard) works Windows Terminal style too: ⌘C copies the selection, or interrupts the running program when nothing is selected. Turn this off in Settings (*⌘C sem seleção para o programa*) if you want ⌘C to only ever copy. "Copy" clicked in a menu never interrupts.
 
 ## Project structure
 

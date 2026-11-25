@@ -58,7 +58,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func previousTab(_ sender: Any?) { bridge.command("prevTab") }
     @objc func selectTab(_ sender: NSMenuItem) { bridge.command("selectTab", arg: sender.tag) }
     @objc func openSettings(_ sender: Any?) { windowController.show(); bridge.command("settings") }
-    @objc func copyText(_ sender: Any?) { bridge.command("copy") }
+    /// ⌘C from the keyboard behaves like Windows Terminal (copy the selection, or interrupt when
+    /// nothing is selected); "Copy" clicked in the menu only ever copies.
+    @objc func copyText(_ sender: Any?) {
+        bridge.command(NSApp.currentEvent?.type == .keyDown ? "copyOrInterrupt" : "copy")
+    }
     @objc func pasteText(_ sender: Any?) { bridge.command("paste") }
     @objc func selectAllText(_ sender: Any?) { bridge.command("selectAll") }
     @objc func clearBuffer(_ sender: Any?) { bridge.command("clear") }

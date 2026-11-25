@@ -42,6 +42,7 @@
     favorites: [],
     historyScope: 'tab',   // sidebar history: 'tab' (this tab) or 'all' (every tab)
     fullPathPrompt: true,  // macOS: the prompt shows the full path, like on Windows
+    cmdCInterrupts: true,  // macOS: ⌘C with nothing selected interrupts, like Ctrl+C (Windows Terminal style)
   };
 
   const HISTORY_MAX = 300;
@@ -629,6 +630,7 @@
     $('#cursor-blink').checked = s.cursorBlink;
     $('#show-sidebar').checked = s.showSidebar;
     $('#full-path-prompt').checked = s.fullPathPrompt;
+    $('#cmd-c-interrupts').checked = s.cmdCInterrupts;
     $('#copy-on-select').checked = s.copyOnSelect;
     $('#option-as-meta').checked = s.optionAsMeta;
     document.querySelectorAll('#cursor-style button').forEach((b) => b.classList.toggle('on', b.dataset.value === s.cursorStyle));
@@ -643,6 +645,7 @@
   $('#cursor-blink').addEventListener('change', (e) => setSetting('cursorBlink', e.target.checked));
   $('#show-sidebar').addEventListener('change', (e) => setSetting('showSidebar', e.target.checked));
   $('#full-path-prompt').addEventListener('change', (e) => setSetting('fullPathPrompt', e.target.checked));
+  $('#cmd-c-interrupts').addEventListener('change', (e) => setSetting('cmdCInterrupts', e.target.checked));
   $('#sidebar-btn').addEventListener('click', () => command('toggleSidebar'));
   $('#copy-on-select').addEventListener('change', (e) => setSetting('copyOnSelect', e.target.checked));
   $('#option-as-meta').addEventListener('change', (e) => setSetting('optionAsMeta', e.target.checked));
@@ -762,6 +765,22 @@
     tab.term.input(String.fromCharCode(key.charCodeAt(0) - 96), true);   // c → \x03
   }
 
+  // macOS ⌘C from the keyboard (the Windows key on a PC keyboard), Windows Terminal style:
+  // copies the selection (and clears it), or interrupts the running program when nothing is
+  // selected, exactly like Ctrl+C. Can be turned off in Settings (then ⌘C only copies).
+  function copyOrInterrupt() {
+    const tab = activeTab();
+    if (focusedField() || !tab) return command('copy');
+    if (tab.term.hasSelection()) {
+      command('copy');
+      tab.term.clearSelection();
+      return;
+    }
+    if (!state.settings.cmdCInterrupts) return;
+    tab.term.focus();
+    tab.term.input('\x03', true);
+  }
+
   function isTextField(el) {
     return !!(el && el.matches && el.matches('input, select, textarea:not(.xterm-helper-textarea), [contenteditable="true"]'));
   }
@@ -827,6 +846,7 @@
         }
         return;
       }
+      case 'copyOrInterrupt': return copyOrInterrupt();
       case 'paste': return host.post({ t: 'paste' });
       case 'selectAll': {
         const field = focusedField();

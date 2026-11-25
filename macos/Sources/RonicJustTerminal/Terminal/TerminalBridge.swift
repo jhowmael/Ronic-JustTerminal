@@ -30,6 +30,12 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
 
     var sessionCount: Int { sessions.count }
 
+    /// The system clipboard, or a private one in self-test / screenshot runs (JT_DATA_DIR), so tests
+    /// never overwrite what the user copied.
+    private static let pasteboard: NSPasteboard = ProcessInfo.processInfo.environment["JT_DATA_DIR"] != nil
+        ? NSPasteboard(name: NSPasteboard.Name("io.github.jhowmael.ronicjustterminal.selftest"))
+        : .general
+
     // MARK: - Messages from the page
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -118,12 +124,12 @@ final class TerminalBridge: NSObject, WKScriptMessageHandler {
 
         case "copy":
             if let text = msg["text"] as? String {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
+                Self.pasteboard.clearContents()
+                Self.pasteboard.setString(text, forType: .string)
             }
 
         case "paste":
-            send(["t": "pasteText", "text": NSPasteboard.general.string(forType: .string) ?? ""])
+            send(["t": "pasteText", "text": Self.pasteboard.string(forType: .string) ?? ""])
 
         case "openUrl":
             if let s = msg["url"] as? String, let url = URL(string: s), ["http", "https", "mailto", "file"].contains(url.scheme ?? "") {

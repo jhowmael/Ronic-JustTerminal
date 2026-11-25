@@ -65,6 +65,9 @@ enum SelfTest {
             // A real mouse click on an empty spot of the sidebar (history area) before Ctrl+C.
             main.asyncAfter(deadline: .now() + 7.5 + wait - 0.7) { click(in: webView, at: NSPoint(x: 120, y: 30)) }
         }
+        if env["JT_SELECT_BEFORE"] == "1" {
+            main.asyncAfter(deadline: .now() + 7.5 + wait - 0.3) { bridge.command("selectAll") }
+        }
         main.asyncAfter(deadline: .now() + 7.5 + wait) {
             if env["JT_CTRLC_KEYBOARD"] == "1" { pressCtrlC(in: webView) } else { js(webView, "JT.type('\\u0003')") }
         }
@@ -124,7 +127,11 @@ enum SelfTest {
                                             windowNumber: window.windowNumber, context: nil,
                                             characters: asCommand ? "c" : "\u{03}", charactersIgnoringModifiers: "c",
                                             isARepeat: false, keyCode: 8) {
-                if asCommand {
+                if asCommand && ProcessInfo.processInfo.environment["JT_FAKE_PHYSICAL_CTRL"] != "1" {
+                    // A real ⌘C: queued like a physical key, so AppKit routes it (key equivalents,
+                    // menu "Copy") with this event as NSApp.currentEvent.
+                    NSApp.postEvent(event, atStart: false)
+                } else if asCommand {
                     // What NSApp does with a ⌘ key while this window is key: the window's key
                     // equivalents first, then the main menu, then the regular key event. (The
                     // self-test app is launched in the background, so its window may not be key.)
