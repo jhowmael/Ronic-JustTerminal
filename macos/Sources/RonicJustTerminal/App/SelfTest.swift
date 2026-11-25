@@ -116,12 +116,25 @@ enum SelfTest {
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(webView)
         for type in [NSEvent.EventType.keyDown, .keyUp] {
-            if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [.control],
+            // JT_CTRLC_AS_COMMAND=1: deliver it as ⌘C, the way Ronic MacToWindows rewrites Ctrl+C
+            // (combine with JT_FAKE_PHYSICAL_CTRL=1 to simulate the physical Control key).
+            let asCommand = ProcessInfo.processInfo.environment["JT_CTRLC_AS_COMMAND"] == "1"
+            if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: asCommand ? [.command] : [.control],
                                             timestamp: ProcessInfo.processInfo.systemUptime,
                                             windowNumber: window.windowNumber, context: nil,
-                                            characters: "\u{03}", charactersIgnoringModifiers: "c",
+                                            characters: asCommand ? "c" : "\u{03}", charactersIgnoringModifiers: "c",
                                             isARepeat: false, keyCode: 8) {
-                NSApp.sendEvent(event)
+                if asCommand {
+                    // What NSApp does with a ⌘ key while this window is key: the window's key
+                    // equivalents first, then the main menu, then the regular key event. (The
+                    // self-test app is launched in the background, so its window may not be key.)
+                    print("SELFTEST window key=\(window.isKeyWindow)")
+                    if type == .keyDown, window.performKeyEquivalent(with: event) { continue }
+                    if type == .keyDown, NSApp.mainMenu?.performKeyEquivalent(with: event) == true { continue }
+                    window.sendEvent(event)
+                } else {
+                    NSApp.sendEvent(event)
+                }
             }
         }
     }

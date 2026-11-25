@@ -736,6 +736,32 @@
     return el && el.matches && el.matches('input[type="text"], input[type="search"], input.rename') ? el : null;
   }
 
+  // macOS: the user physically pressed Ctrl+letter, but a keyboard remapper (Ronic MacToWindows…)
+  // delivered it as ⌘+letter. Behave like Windows Terminal: Ctrl+C copies the selection or
+  // interrupts, Ctrl+V pastes, Ctrl+Shift+C/V/T/W copy/paste/new tab/close tab, and every other
+  // Ctrl+letter goes to the shell (Ctrl+R search, Ctrl+A/E, Ctrl+U/K/W, Ctrl+L, Ctrl+Z…).
+  function physicalCtrlKey(key, shift) {
+    const tab = activeTab();
+    if (focusedField()) {
+      if (key === 'c' || key === 'v' || key === 'a') command({ c: 'copy', v: 'paste', a: 'selectAll' }[key]);
+      return;
+    }
+    if (!tab) return;
+    if (shift) {
+      const action = { c: 'copy', v: 'paste', t: 'newTab', w: 'closeTab' }[key];
+      if (action) command(action);
+      return;
+    }
+    if (key === 'v') return command('paste');
+    if (key === 'c' && tab.term.hasSelection()) {
+      command('copy');
+      tab.term.clearSelection();
+      return;
+    }
+    tab.term.focus();
+    tab.term.input(String.fromCharCode(key.charCodeAt(0) - 96), true);   // c → \x03
+  }
+
   function isTextField(el) {
     return !!(el && el.matches && el.matches('input, select, textarea:not(.xterm-helper-textarea), [contenteditable="true"]'));
   }
@@ -784,6 +810,7 @@
     switch (name) {
       case 'newTab': return newTab(arg);
       case 'toggleSidebar': return setSetting('showSidebar', !state.settings.showSidebar);
+      case 'ctrlKey': return physicalCtrlKey(arg.key, arg.shift);
       case 'closeTab': return tab && closeTab(tab.id);
       case 'nextTab': return cycleTab(1);
       case 'prevTab': return cycleTab(-1);

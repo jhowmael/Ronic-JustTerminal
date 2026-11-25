@@ -51,6 +51,9 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
         config.userContentController.add(bridge, name: "jt")
         bridge.webView = webView
         bridge.delegate = self
+        window.onPhysicalControlLetter = { [weak bridge] key, shift in
+            bridge?.command("ctrlKey", arg: ["key": key, "shift": shift])
+        }
         webView.navigationDelegate = self
         window.delegate = self
 
@@ -200,13 +203,51 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate, WKNa
 /// Window that hands ⌘ shortcuts to the menu BEFORE the WKWebView: the terminal never receives
 /// ⌘T, ⌘W, ⌘C… and the native menu decides what to do (new tab, copy the xterm selection, etc.).
 final class TerminalWindow: NSWindow {
+    /// Called with ("c", shift) when the user physically pressed Ctrl+letter but the event arrived
+    /// as ⌘+letter (see `physicalControlLetter`).
+    var onPhysicalControlLetter: ((String, Bool) -> Void)?
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let (letter, shift) = Self.physicalControlLetter(event), let handler = onPhysicalControlLetter {
+            handler(letter, shift)
+            return true
+        }
         let flags = event.modifierFlags
         let ctrlTab = event.keyCode == 48 && flags.contains(.control)   // ⌃Tab / ⌃⇧Tab switch tabs
         if flags.contains(.command) || ctrlTab, NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// Keyboard remappers that work with an event tap (Ronic MacToWindows, BetterTouchTool…) turn
+    /// Ctrl+C into ⌘C, Ctrl+R into ⌘R and so on, so a terminal would copy instead of interrupting,
+    /// close the tab on Ctrl+W, etc. They rewrite the event, but not the physical keyboard state
+    /// (HID): if the event says ⌘+letter while the keyboard says Control is down and Command is
+    /// not, the user pressed Ctrl+letter. A real ⌘C (Command physically down) is left alone.
+    static func physicalControlLetter(_ event: NSEvent) -> (String, Bool)? {
+        guard event.type == .keyDown else { return nil }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), !flags.contains(.control),
+              let key = event.charactersIgnoringModifiers?.lowercased(), key.count == 1,
+              let ascii = key.unicodeScalars.first?.value, (97...122).contains(ascii) else { return nil }
+
+        let physical = physicalModifiers()
+        guard physical.contains(.maskControl), !physical.contains(.maskCommand),
+              // Same Shift/Option on both sides: remaps that also change those (Ctrl+Y → ⇧⌘Z) are
+              // not plain Ctrl+letter and are left alone.
+              physical.contains(.maskShift) == flags.contains(.shift),
+              physical.contains(.maskAlternate) == flags.contains(.option),
+              !flags.contains(.option) else { return nil }
+        return (key, flags.contains(.shift))
+    }
+
+    /// Modifiers physically held on the keyboard right now (not affected by event-tap remappers).
+    private static func physicalModifiers() -> CGEventFlags {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["JT_FAKE_PHYSICAL_CTRL"] == "1" { return .maskControl }
+        #endif
+        return CGEventSource.flagsState(.hidSystemState)
     }
 }
 

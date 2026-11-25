@@ -92,6 +92,17 @@
 
 Links in the terminal open with ⌘-click (macOS) or Ctrl-click (Windows).
 
+**Using [Ronic MacToWindows](https://github.com/jhowmael/Ronic-MacToWindows) or another Ctrl→⌘ remapper on macOS?** No setup needed. JustTerminal reads the physical keyboard: when you press Ctrl+letter and the remapper turns it into ⌘+letter, the terminal still gets Ctrl+letter, Windows Terminal style:
+
+| You press | JustTerminal does |
+|---|---|
+| Ctrl+C | Copies the selection, or interrupts the running program (`dotnet run`, `npm run dev`…) when nothing is selected |
+| Ctrl+V | Pastes |
+| Ctrl+Shift+C / V / T / W | Copy / paste / new tab / close tab |
+| Any other Ctrl+letter | Goes to the shell: Ctrl+R (history search), Ctrl+A / E, Ctrl+U / K / W, Ctrl+L, Ctrl+Z… |
+
+A real ⌘C (Command key) still copies.
+
 ## Project structure
 
 ```
