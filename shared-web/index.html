@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ronic JustTerminal</title>
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="tabbar">
+      <button id="sidebar-btn" class="icon-btn" title="Mostrar/ocultar barra lateral" aria-label="Barra lateral">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.25" y="3" width="11.5" height="10" rx="2"/><path d="M6.25 3v10"/></svg>
+      </button>
+      <div id="tabs" role="tablist" aria-label="Abas"></div>
+      <div class="tab-actions">
+        <button id="new-tab" class="icon-btn" title="Nova aba" aria-label="Nova aba">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.25v9.5M3.25 8h9.5"/></svg>
+        </button>
+        <button id="profile-btn" class="icon-btn small" title="Nova aba com outro shell" aria-label="Escolher shell" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg>
+        </button>
+      </div>
+      <div id="drag-spacer"></div>
+      <button id="settings-btn" class="icon-btn" title="Ajustes" aria-label="Ajustes">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6"/>
+          <circle cx="10" cy="4.5" r="1.5"/><circle cx="6" cy="11.5" r="1.5"/>
+        </svg>
+      </button>
+    </header>
+    <div id="workspace">
+      <aside id="sidebar" aria-label="Pastas e histórico">
+        <section class="sb-section" id="sb-places">
+          <h3><button class="sb-toggle">Locais</button></h3>
+          <div class="sb-body places"></div>
+        </section>
+
+        <section class="sb-section grow" id="sb-folders">
+          <h3>
+            <button class="sb-toggle">Pastas</button>
+            <span class="sb-tools">
+              <button id="toggle-hidden" class="icon-btn tiny" title="Mostrar arquivos ocultos" aria-label="Arquivos ocultos">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8Z"/><circle cx="8" cy="8" r="1.9"/></svg>
+              </button>
+              <button id="toggle-files" class="icon-btn tiny" title="Mostrar arquivos (além das pastas)" aria-label="Mostrar arquivos">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.75h5l3 3v9.5H4z"/><path d="M9 1.75v3h3"/></svg>
+              </button>
+              <button id="refresh-tree" class="icon-btn tiny" title="Atualizar" aria-label="Atualizar">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.75v2.5h-2.5"/></svg>
+              </button>
+            </span>
+          </h3>
+          <nav class="crumbs" aria-label="Pasta atual"></nav>
+          <div class="sb-body tree" role="tree"></div>
+        </section>
+
+        <section class="sb-section grow" id="sb-history">
+          <h3>
+            <button class="sb-toggle">Histórico</button>
+            <span class="sb-tools">
+              <button id="clear-history" class="icon-btn tiny" title="Limpar histórico" aria-label="Limpar histórico">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.75h5.8l.6-8.75"/></svg>
+              </button>
+            </span>
+          </h3>
+          <div class="sb-body history-body">
+            <input id="history-filter" type="search" placeholder="Filtrar comandos…" spellcheck="false" autocomplete="off">
+            <ul class="history" role="list"></ul>
+          </div>
+        </section>
+      </aside>
+      <div id="sb-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar"></div>
+      <main id="panes"></main>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <section id="settings" class="glass-panel" hidden aria-label="Ajustes">
+    <header>
+      <h2>Ajustes</h2>
+      <button id="settings-close" class="icon-btn small" aria-label="Fechar">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg>
+      </button>
+    </header>
+
+    <label class="row">
+      <span>Opacidade <output id="opacity-value">100%</output></span>
+      <input id="opacity" type="range" min="30" max="100" step="1">
+    </label>
+
+    <label class="row">
+      <span>Tamanho da fonte <output id="font-size-value">13</output></span>
+      <input id="font-size" type="range" min="9" max="28" step="1">
+    </label>
+
+    <label class="row">
+      <span>Fonte</span>
+      <input id="font-family" type="text" spellcheck="false" autocomplete="off">
+    </label>
+
+    <div class="row">
+      <span>Cursor</span>
+      <div class="segmented" id="cursor-style">
+        <button data-value="bar">Barra</button>
+        <button data-value="block">Bloco</button>
+        <button data-value="underline">Sublinhado</button>
+      </div>
+    </div>
+
+    <label class="row">
+      <span>Shell padrão</span>
+      <select id="default-profile"></select>
+    </label>
+
+    <label class="toggle"><input id="show-sidebar" type="checkbox"><span>Barra lateral (pastas e histórico)</span></label>
+    <label class="toggle"><input id="cursor-blink" type="checkbox"><span>Cursor piscando</span></label>
+    <label class="toggle"><input id="copy-on-select" type="checkbox"><span>Copiar ao selecionar</span></label>
+    <label class="toggle mac-only"><input id="option-as-meta" type="checkbox"><span>Option como Meta (Alt)</span></label>
+
+    <footer id="about"></footer>
+  </section>
+
+  <div id="menu" class="glass-menu" hidden role="menu"></div>
+
+  <script src="vendor/xterm.js"></script>
+  <script src="vendor/addon-fit.js"></script>
+  <script src="vendor/addon-webgl.js"></script>
+  <script src="vendor/addon-web-links.js"></script>
+  <script src="vendor/addon-unicode11.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

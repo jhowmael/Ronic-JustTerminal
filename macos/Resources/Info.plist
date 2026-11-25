@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>pt-BR</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>pt-BR</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
+	<key>CFBundleDisplayName</key>
+	<string>Ronic JustTerminal</string>
+	<key>CFBundleExecutable</key>
+	<string>RonicJustTerminal</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.jhowmael.ronicjustterminal</string>
+	<key>CFBundleName</key>
+	<string>RonicJustTerminal</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer controlar outro app.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer acessar a Mesa.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer acessar a pasta Documentos.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer acessar a pasta Downloads.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer acessar um disco removível.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Um comando rodando no Ronic JustTerminal quer acessar um volume de rede.</string>
+</dict>
+</plist>

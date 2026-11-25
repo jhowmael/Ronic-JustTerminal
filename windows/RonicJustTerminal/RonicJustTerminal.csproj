@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Permite compilar o .exe também no macOS/Linux (CI ou máquina de desenvolvimento). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <AssemblyName>RonicJustTerminal</AssemblyName>
+    <RootNamespace>RonicJustTerminal</RootNamespace>
+    <Product>Ronic JustTerminal</Product>
+    <Company>Ronic</Company>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\ronic.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Um único .exe que roda sem instalar o .NET. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+    <TieredPGO>true</TieredPGO>
+    <!-- O pacote WebView2 traz também a versão WPF; o conflito de WindowsBase não afeta o WinForms. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\ronic.ico" LogicalName="RonicJustTerminal.ronic.ico" />
+  </ItemGroup>
+
+</Project>
